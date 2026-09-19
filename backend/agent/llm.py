@@ -42,13 +42,17 @@ def _strip_think(text: str) -> str:
 async def chat(messages: list[dict], tools: list[dict], model: str = MODEL) -> LLMReply:
     body = {"model": model, "messages": messages, "tools": tools, "stream": False, "think": THINK,
             "options": {"temperature": 0.1, "seed": 7, "num_ctx": 12288}}
-    try:
-        async with httpx.AsyncClient(timeout=TIMEOUT_S) as c:
-            r = await c.post(f"{OLLAMA_URL}/api/chat", json=body)
-    except httpx.TimeoutException as e:
-        raise LLMUnavailable(f"model timed out after {TIMEOUT_S:.0f}s") from e
-    except httpx.HTTPError as e:
-        raise LLMUnavailable(f"Ollama unreachable at {OLLAMA_URL}: {type(e).__name__}") from e
+    r = None
+    for attempt in (1, 2):  # a single stalled generation (seen under host load) is retried once
+        try:
+            async with httpx.AsyncClient(timeout=TIMEOUT_S) as c:
+                r = await c.post(f"{OLLAMA_URL}/api/chat", json=body)
+            break
+        except httpx.TimeoutException as e:
+            if attempt == 2:
+                raise LLMUnavailable(f"model timed out after {TIMEOUT_S:.0f}s (2 attempts)") from e
+        except httpx.HTTPError as e:
+            raise LLMUnavailable(f"Ollama unreachable at {OLLAMA_URL}: {type(e).__name__}") from e
     if r.status_code != 200:
         raise LLMUnavailable(f"Ollama returned HTTP {r.status_code}: {r.text[:200]}")
     data = r.json()

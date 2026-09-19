@@ -1,0 +1,247 @@
+{
+  "meta": {
+    "started": "2026-09-19 12:12:43",
+    "model": "qwen3:4b",
+    "think": false,
+    "platform": "Linux 6.18.33.2-microsoft-standard-WSL2, ROS 2 lyrical",
+    "query": "Diagnose the robot."
+  },
+  "summary": {
+    "runs": 10,
+    "valid_runs": 7,
+    "diagnosis_success_rate": 0.714,
+    "repair_success_rate": 0.714,
+    "verification_success_rate": 0.571,
+    "median_diagnosis_time_s": 129.9,
+    "median_total_time_s": 147.8,
+    "median_tool_calls": 2
+  },
+  "results": [
+    {
+      "fault": "controller_crash",
+      "expected_component": "base_controller",
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "base_controller",
+      "root_cause": "base_controller process exited with exit code 1",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E4 (list_nodes): Expected node /base_controller (base motor controller, consumes velocity commands) is NOT present in the ROS graph",
+        "E5 (get_component_status): Process for base_controller has exited (exit code 1)"
+      ],
+      "diagnosis_success": true,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 129.9,
+      "total_time_s": 135.9,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "list_nodes",
+        "get_component_status"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 129.9,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "1c94f64f16",
+      "repeat": 1
+    },
+    {
+      "fault": "lidar_failure",
+      "expected_component": "lidar_driver",
+      "baseline_healthy": true,
+      "final_phase": "error",
+      "diagnosed_component": null,
+      "root_cause": null,
+      "evidence_score": null,
+      "cited_evidence": [],
+      "diagnosis_success": false,
+      "repair_executed": false,
+      "verification_success": false,
+      "rounds": 1,
+      "diagnosis_time_s": null,
+      "total_time_s": 151.3,
+      "tool_calls": 2,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics"
+      ],
+      "llm_calls": 1,
+      "llm_seconds": 31.4,
+      "rejected_diagnoses": 0,
+      "error": "LLM unavailable: model timed out after 120s",
+      "investigation_id": "c1d15a2d6b",
+      "repeat": 1
+    },
+    {
+      "fault": "tf_failure",
+      "expected_component": "tf_broadcaster",
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "tf_broadcaster",
+      "root_cause": "tf_broadcaster is stale (75s no updates) causing obstacle_monitor to fail transform lookup",
+      "evidence_score": 0.45,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): obstacle_monitor reports ERROR: Cannot transform base_link<-laser: transform is 73.5s old - obstacle detection disabled",
+        "E5 (get_recent_diagnostics): Diagnostics from tf_broadcaster are STALE: no update for 75s (last message: 'Broadcasting base_link->laser')"
+      ],
+      "diagnosis_success": true,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 95.6,
+      "total_time_s": 101.8,
+      "tool_calls": 2,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics"
+      ],
+      "llm_calls": 2,
+      "llm_seconds": 95.7,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "e3f0495a71",
+      "repeat": 1
+    },
+    {
+      "fault": "topic_misconfig",
+      "expected_component": "base_controller",
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "base_controller",
+      "root_cause": "base_controller is misconfigured to listen to /cmd_vel_nav instead of /cmd_vel, causing no velocity commands to be received",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): base_controller reports WARN: No velocity commands received yet on /cmd_vel_nav",
+        "E6 (inspect_parameters): Parameter /base_controller.cmd_vel_topic = '/cmd_vel_nav' but the robot manifest expects '/cmd_vel'"
+      ],
+      "diagnosis_success": true,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 140.4,
+      "total_time_s": 147.8,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics",
+        "inspect_parameters"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 140.0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "49041bcfec",
+      "repeat": 1
+    },
+    {
+      "fault": "node_crash",
+      "expected_component": "obstacle_monitor",
+      "baseline_healthy": true,
+      "final_phase": "error",
+      "diagnosed_component": null,
+      "root_cause": null,
+      "evidence_score": null,
+      "cited_evidence": [],
+      "diagnosis_success": false,
+      "repair_executed": false,
+      "verification_success": false,
+      "rounds": 1,
+      "diagnosis_time_s": null,
+      "total_time_s": 120.1,
+      "tool_calls": 1,
+      "tools_used": [
+        "get_ros_health"
+      ],
+      "llm_calls": 0,
+      "llm_seconds": 0.0,
+      "rejected_diagnoses": 0,
+      "error": "LLM unavailable: model timed out after 120s",
+      "investigation_id": "041a895843",
+      "repeat": 1
+    },
+    {
+      "fault": "controller_crash",
+      "expected_component": "base_controller",
+      "baseline_healthy": false,
+      "error": "baseline not healthy: ['/velocity_commander running: missing', '/base_controller running: missing', '/wheel_odometry running: missing', '/lidar_driver running: missing', '/tf_broadcaster running: missing']",
+      "repeat": 2
+    },
+    {
+      "fault": "lidar_failure",
+      "expected_component": "lidar_driver",
+      "baseline_healthy": true,
+      "final_phase": "error",
+      "diagnosed_component": "lidar_driver",
+      "root_cause": "lidar_driver is failing to read serial data from /dev/ttyUSB0, causing /scan to be stale",
+      "evidence_score": 0.45,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): lidar_driver reports ERROR: No data from device for 28.8s (serial read timeout on /dev/ttyUSB0)",
+        "E5 (get_recent_diagnostics): obstacle_monitor reports ERROR: LaserScan on /scan is stale (last: 28.8s) - obstacle detection disabled"
+      ],
+      "diagnosis_success": true,
+      "repair_executed": true,
+      "verification_success": false,
+      "rounds": 2,
+      "diagnosis_time_s": 57.9,
+      "total_time_s": 193.5,
+      "tool_calls": 2,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics"
+      ],
+      "llm_calls": 2,
+      "llm_seconds": 57.7,
+      "rejected_diagnoses": 0,
+      "error": "LLM unavailable: model timed out after 120s",
+      "investigation_id": "acfe1b1793",
+      "repeat": 2
+    },
+    {
+      "fault": "tf_failure",
+      "expected_component": "tf_broadcaster",
+      "baseline_healthy": false,
+      "error": "baseline not healthy: ['/velocity_commander running: missing', '/base_controller running: missing', '/wheel_odometry running: missing', '/lidar_driver running: missing', '/tf_broadcaster running: missing']",
+      "repeat": 2
+    },
+    {
+      "fault": "topic_misconfig",
+      "expected_component": "base_controller",
+      "baseline_healthy": false,
+      "error": "baseline not healthy: ['/velocity_commander running: missing', '/base_controller running: missing', '/wheel_odometry running: missing', '/lidar_driver running: missing', '/tf_broadcaster running: missing']",
+      "repeat": 2
+    },
+    {
+      "fault": "node_crash",
+      "expected_component": "obstacle_monitor",
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "obstacle_monitor",
+      "root_cause": "obstacle_monitor node is missing (not running)",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E2 (get_ros_health): 1 expected node(s) missing: /obstacle_monitor",
+        "E4 (list_topics): Expected topic /obstacle_distance does not exist in the ROS graph (no publishers or subscribers)"
+      ],
+      "diagnosis_success": true,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 151.8,
+      "total_time_s": 156.9,
+      "tool_calls": 2,
+      "tools_used": [
+        "get_ros_health",
+        "list_topics"
+      ],
+      "llm_calls": 2,
+      "llm_seconds": 151.8,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "19c0498b8e",
+      "repeat": 2
+    }
+  ]
+}

@@ -20,16 +20,20 @@
 - **Model quality**: `qwen3:4b` is the only installed model that completes investigations. `llama3.2:3b` never submitted a
   valid diagnosis in the benchmark (5/5 inconclusive — the safety gate held and no repair was attempted).
   See benchmark files for both.
+- **Test suite**: `pytest -m "not ros"` = 82 tests, ~1 s. `pytest -m ros` = 19 live-ROS tests (~15 min); all 18 integration
+  tests passed (16 in the full run, 2 re-run after fixing a bug in the tests themselves) and the live API test passed.
 - **Latency**: ~7–50 s per LLM step on the 6 GB laptop GPU shared with Windows; a full diagnosis takes ~45–170 s.
 - **DDS on WSL2**: cross-process messages >1.4 KB are dropped unless Cyclone fragments below the MTU
   (`config/cyclonedds.xml`, applied automatically by `scripts/env.sh`). Under heavy host load or a Wi-Fi flap the
   observer can transiently lose discovery (seen once during a benchmark run: all nodes vanished from the graph mid-investigation).
-  Loopback-only Cyclone configs were tried and did not work in this WSL setup.
+  Loopback-only Cyclone configs were tried and did not work in this WSL setup. A 100 s steady-state test with a 3 s and a
+  10 s lease showed no dropouts either way, so the 3 s lease was kept.
 - Repairs: only `restart_component` on the 6 demo components (by design). `topic_misconfig` is fixed by restarting the
   controller with its canonical configuration, not by a live parameter change.
 
 ## BROKEN
-- Nothing known at time of writing.
+- Nothing known to be broken in the code. Benchmark reliability on a busy machine is **not** good: see the README benchmark
+  section (10 runs: 5 completed diagnoses, all correct; 3 invalid baselines and 3 model timeouts, cause not established).
 
 ## NEXT
 - Second repair primitive (parameter set with allowlisted keys) so `topic_misconfig` can be repaired without a restart.

@@ -221,6 +221,30 @@ def test_llm_output_parsing_handles_string_arguments_and_bad_json(monkeypatch):
     assert "secret" not in str(r.raw_message)                       # private reasoning never re-sent/stored
 
 
+def test_llm_single_timeout_is_retried_once(monkeypatch):
+    import httpx
+    attempts = []
+
+    class Resp:
+        status_code = 200
+        text = ""
+
+        def json(self):
+            return {"message": {"content": "ok"}, "eval_count": 1, "total_duration": 1}
+
+    class Client:
+        def __init__(self, **k): pass
+        async def __aenter__(self): return self
+        async def __aexit__(self, *a): pass
+        async def post(self, *a, **k):
+            attempts.append(1)
+            if len(attempts) == 1:
+                raise httpx.ReadTimeout("stall")
+            return Resp()
+    monkeypatch.setattr(httpx, "AsyncClient", Client)
+    assert asyncio.run(llm.chat([], [])).content == "ok" and len(attempts) == 2
+
+
 def test_llm_timeout_and_connection_errors_map_to_unavailable(monkeypatch):
     import httpx
 
@@ -230,5 +254,5 @@ def test_llm_timeout_and_connection_errors_map_to_unavailable(monkeypatch):
         async def __aexit__(self, *a): pass
         async def post(self, *a, **k): raise httpx.ReadTimeout("t")
     monkeypatch.setattr(httpx, "AsyncClient", Client)
-    with pytest.raises(llm.LLMUnavailable, match="timed out"):
+    with pytest.raises(llm.LLMUnavailable, match="timed out .*2 attempts"):
         asyncio.run(llm.chat([], []))

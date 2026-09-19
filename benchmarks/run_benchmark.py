@@ -42,7 +42,17 @@ EXPECTED_COMPONENT = {
 QUERY = "Diagnose the robot."
 
 
-async def wait_healthy(client, timeout=40.0) -> tuple[bool, list]:
+def host_snapshot() -> dict:
+    """Host load at the start of a run, so runs disturbed by other workloads are visible in the results."""
+    try:
+        load = float(open("/proc/loadavg").read().split()[0])
+        mem = {k: int(v.split()[0]) for k, v in (l.split(":", 1) for l in open("/proc/meminfo"))}
+        return {"loadavg_1m": load, "cpus": os.cpu_count(), "mem_available_mb": mem["MemAvailable"] // 1024}
+    except (OSError, KeyError, ValueError):
+        return {}
+
+
+async def wait_healthy(client, timeout=90.0) -> tuple[bool, list]:
     end = time.monotonic() + timeout
     failed = []
     while time.monotonic() < end:
@@ -55,7 +65,7 @@ async def wait_healthy(client, timeout=40.0) -> tuple[bool, list]:
 
 
 async def run_one(client, fault: str) -> dict:
-    rec = {"fault": fault, "expected_component": EXPECTED_COMPONENT[fault]}
+    rec = {"fault": fault, "expected_component": EXPECTED_COMPONENT[fault], "host": host_snapshot()}
     await asyncio.to_thread(supervisor.reset)
     logs.state["since"] = time.time()
     await asyncio.sleep(3)
@@ -124,15 +134,17 @@ def write_markdown(meta: dict, summary: dict, results: list[dict], path: Path):
     for k, v in summary.items():
         lines.append(f"| {k.replace('_', ' ')} | {v} |")
     lines += ["", "| fault | diagnosed component | diagnosis | repair | verified | diag time (s) | total (s) | "
-              "tool calls | tools used |", "|---|---|---|---|---|---|---|---|---|"]
+              "tool calls | tools used | host load (1m) | free RAM (MB) |", "|---|---|---|---|---|---|---|---|---|---|---|"]
     for r in results:
         if not r.get("baseline_healthy"):
-            lines.append(f"| {r['fault']} | - | baseline unhealthy | | | | | | |")
+            h = r.get("host", {})
+            lines.append(f"| {r['fault']} | - | baseline unhealthy | | | | | | | {h.get('loadavg_1m', '')} | {h.get('mem_available_mb', '')} |")
             continue
         yn = lambda b: "✅" if b else "❌"  # noqa: E731
         lines.append(f"| {r['fault']} | {r['diagnosed_component'] or '-'} | {yn(r['diagnosis_success'])} | "
                      f"{yn(r['repair_executed'])} | {yn(r['verification_success'])} | {r['diagnosis_time_s']} | "
-                     f"{r['total_time_s']} | {r['tool_calls']} | {' → '.join(r['tools_used'])} |")
+                     f"{r['total_time_s']} | {r['tool_calls']} | {' → '.join(r['tools_used'])} | "
+                     f"{r.get('host', {}).get('loadavg_1m', '')} | {r.get('host', {}).get('mem_available_mb', '')} |")
     lines += ["", "Diagnosis = the component named by the agent matches the injected fault. "
               "Repair = the approved (benchmark auto-approve) action was executed. "
               "Verified = independent post-repair re-measurement of the whole robot passed.", ""]
@@ -148,7 +160,7 @@ async def main():
     faults = [f for f in a.faults.split(",") if f]
     meta = {"started": time.strftime("%Y-%m-%d %H:%M:%S"), "model": llm.MODEL, "think": llm.THINK,
             "platform": f"{platform.system()} {platform.release()}, ROS 2 {os.environ.get('ROS_DISTRO')}",
-            "query": QUERY}
+            "query": QUERY, "host": host_snapshot()}
     llm_status = await llm.status()
     if not llm_status["model_available"]:
         sys.exit(f"LLM not available: {llm_status}")

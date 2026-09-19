@@ -143,7 +143,68 @@ Useful extras: `./scripts/reset_demo.sh`, `python scripts/diagnose_cli.py "..." 
 baseline → inject → ask *"Diagnose the robot."* (same query, no hint) → score against the injected fault →
 auto-approved repair (benchmark mode, logged as such) → independent verification → timings.
 
-BENCHMARK_PLACEHOLDER
+### Measured results (`benchmarks/results.json`, `results.md`)
+
+Final run: **10 runs** (5 faults × 2 repeats), `qwen3:4b`, thinking off, 2026-09-19 12:12:43.
+All values below are copied from the JSON the runner wrote.
+
+| metric | value |
+|---|---|
+| runs / valid runs (healthy baseline reached) | 10 / 7 |
+| diagnosis success (correct component, of valid runs) | 0.714 |
+| repair executed (approved action ran) | 0.714 |
+| recovery verified (independent checks) | 0.571 |
+| median time to diagnosis | 129.9 s |
+| median total time (diagnose → repair → verify) | 147.8 s |
+| median diagnostic tool calls | 2 |
+
+| fault | repeat | diagnosed | diagnosis | repair | verified | total (s) | tool calls | outcome |
+|---|---|---|---|---|---|---|---|---|
+| controller_crash | 1 | base_controller | ✅ | ✅ | ✅ | 135.9 | 3 | resolved |
+| lidar_failure | 1 | — | ❌ | ❌ | ❌ | 151.3 | 2 | error — LLM unavailable: model timed out after 120s |
+| tf_failure | 1 | tf_broadcaster | ✅ | ✅ | ✅ | 101.8 | 2 | resolved |
+| topic_misconfig | 1 | base_controller | ✅ | ✅ | ✅ | 147.8 | 3 | resolved |
+| node_crash | 1 | — | ❌ | ❌ | ❌ | 120.1 | 1 | error — LLM unavailable: model timed out after 120s |
+| controller_crash | 2 | — | baseline not healthy (run invalid) | | | | | |
+| lidar_failure | 2 | lidar_driver | ✅ | ✅ | ❌ | 193.5 | 2 | error — LLM unavailable: model timed out after 120s |
+| tf_failure | 2 | — | baseline not healthy (run invalid) | | | | | |
+| topic_misconfig | 2 | — | baseline not healthy (run invalid) | | | | | |
+| node_crash | 2 | obstacle_monitor | ✅ | ✅ | ✅ | 156.9 | 2 | resolved |
+
+**How to read this — it is a noisy result, not a clean 100 %:**
+
+- Every diagnosis the agent *completed* named the correct component (5 of 5), and the tool
+  sequence differed by fault (`get_component_status`, `get_recent_diagnostics`, `inspect_parameters`, `list_topics`, …).
+- The misses are **infrastructure failures, not misdiagnoses**: 2 runs ended when a single model call exceeded the
+  120 s timeout (`LLM unavailable: model timed out after 120s`), and 3 runs were discarded because the healthy baseline
+  wasn't reached within 40 s after a reset (most nodes reported missing).
+- One run (lidar, repeat 2) diagnosed correctly and executed the repair, but verification then saw *every* node as
+  missing — including ones the repair never touched — so RobotOps correctly refused to call it recovered
+  (re-investigated, then the model timed out). That is the safety behaviour working, on an unhealthy observer.
+- **Cause of the infrastructure failures is not established.** Timeline from the audit log: model timeouts at 12:17 and
+  12:24 and one unhealthy baseline at ~12:25 happened first; at 12:25:52 an unrelated CPU/RAM-heavy job (two `tinyrdt`
+  evaluation processes, ~140 % CPU and ~2 GB RSS each, free RAM down to ~0.1 GB) started on the same laptop and ran
+  until the end; a third model timeout (12:28) and two more unhealthy baselines (~12:29–12:30) followed. So competing load
+  is a plausible contributor but cannot explain the early failures, and host load was not recorded for those runs (the
+  runner now records it). A 100 s steady-state test under that load showed no graph dropouts, so the flakiness is
+  tied to bursts (process restarts + model inference), not to constant load.
+  Treat these rates as a smoke test on a shared machine, not as statistics. For clean numbers, close other heavy
+  workloads and run `python benchmarks/run_benchmark.py --repeat 3`.
+- Since this run: the baseline wait was raised to 90 s, host load / free RAM is recorded per run, and one automatic
+  retry on a model timeout was added (unit-tested; **not** reflected in the numbers above).
+
+### Earlier runs kept for transparency
+
+| run | model | runs | diagnosis | repair executed | verified | median total |
+|---|---|---|---|---|---|---|
+| `results_think0.md` (1 repeat, quieter machine) | qwen3:4b | 5 | 0.8 | 1.0 | 0.8 | 89.6 s |
+| `results_llama.md` (1 repeat) | llama3.2:3b | 5 | 0.0 | 0.0 | 0.0 | — |
+
+In `results_think0`, `topic_misconfig` failed: the observer lost sight of most nodes mid-investigation (DDS discovery
+under load), so the agent was reasoning over a false picture; the evidence gate still prevented a wrong repair from being
+counted as success (verification failed). `llama3.2:3b` never submitted a valid diagnosis (5/5 inconclusive), so no
+repair was attempted — the "no evidence → no repair" gate held with a weak model.
+
 
 ## Tech stack
 
@@ -161,8 +222,8 @@ uv pip install -p .venv/bin/python fastapi 'uvicorn[standard]' httpx pydantic py
 ./run_demo.sh
 ```
 
-Tests: `.venv/bin/python -m pytest tests` (unit tests always run; `@pytest.mark.ros` tests run against the live demo robot
-and are skipped if it isn't running). See `docs/ENVIRONMENT.md` for what was detected on the dev machine.
+Tests: `.venv/bin/python -m pytest tests -m "not ros"` (82 fast tests, ~1 s) and `.venv/bin/python -m pytest tests -m ros`
+(19 tests against the live demo robot, ~15 min; skipped automatically if `scripts/start_demo.sh` isn't running). See `docs/ENVIRONMENT.md` for what was detected on the dev machine.
 
 ## Limitations
 
