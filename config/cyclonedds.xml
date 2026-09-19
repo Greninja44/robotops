@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- WSL2 mirrored networking drops IP-fragmented UDP datagrams, so any DDS sample
+     larger than ~1400 bytes (e.g. a 360-beam LaserScan) never arrives across processes.
+     Make Cyclone fragment at the DDSI layer so every UDP datagram fits in one MTU. -->
+<CycloneDDS xmlns="https://cdds.io/config">
+  <Domain Id="any">
+    <General>
+      <MaxMessageSize>1400B</MaxMessageSize>
+      <FragmentSize>1200B</FragmentSize>
+    </General>
+    <!-- A crashed process's participant is dropped from the graph after 3 s instead of the default 10 s. -->
+    <Discovery>
+      <LeaseDuration>3s</LeaseDuration>
+    </Discovery>
+  </Domain>
+</CycloneDDS>

@@ -1,0 +1,26 @@
+{
+  "robot": "robotops_demo_bot",
+  "description": "Differential-drive demo robot. velocity_commander drives base_controller via /cmd_vel; base_controller drives wheels (/wheel_states); wheel_odometry integrates /odom and TF odom->base_link; lidar_driver publishes /scan in frame laser; tf_broadcaster publishes base_link->laser; obstacle_monitor fuses /scan + TF into /obstacle_distance.",
+  "nodes": {
+    "/velocity_commander": {"component": "velocity_commander", "role": "motion command source (planner/teleop)"},
+    "/base_controller":    {"component": "base_controller",    "role": "base motor controller, consumes velocity commands"},
+    "/wheel_odometry":     {"component": "wheel_odometry",     "role": "odometry from wheel velocities"},
+    "/lidar_driver":       {"component": "lidar_driver",       "role": "2D lidar sensor driver"},
+    "/tf_broadcaster":     {"component": "tf_broadcaster",     "role": "publishes sensor mounting transform"},
+    "/obstacle_monitor":   {"component": "obstacle_monitor",   "role": "navigation obstacle detection"}
+  },
+  "topics": {
+    "/cmd_vel":           {"type": "geometry_msgs/msg/Twist",       "publishers": ["/velocity_commander"], "subscribers": ["/base_controller"], "min_rate_hz": 5.0},
+    "/wheel_states":      {"type": "sensor_msgs/msg/JointState",    "publishers": ["/base_controller"],    "subscribers": ["/wheel_odometry"],  "min_rate_hz": 10.0},
+    "/odom":              {"type": "nav_msgs/msg/Odometry",         "publishers": ["/wheel_odometry"],     "subscribers": ["/obstacle_monitor"], "min_rate_hz": 10.0},
+    "/scan":              {"type": "sensor_msgs/msg/LaserScan",     "publishers": ["/lidar_driver"],       "subscribers": ["/obstacle_monitor"], "min_rate_hz": 5.0},
+    "/obstacle_distance": {"type": "std_msgs/msg/Float32",          "publishers": ["/obstacle_monitor"],   "subscribers": [],                    "min_rate_hz": 2.0}
+  },
+  "tf": [
+    {"parent": "odom",      "child": "base_link", "broadcaster": "/wheel_odometry"},
+    {"parent": "base_link", "child": "laser",     "broadcaster": "/tf_broadcaster"}
+  ],
+  "parameters": {
+    "/base_controller": {"cmd_vel_topic": "/cmd_vel"}
+  }
+}
