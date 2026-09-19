@@ -1,0 +1,175 @@
+{
+  "meta": {
+    "started": "2026-09-19 11:06:41",
+    "model": "qwen3:4b",
+    "think": false,
+    "platform": "Linux 6.18.33.2-microsoft-standard-WSL2, ROS 2 lyrical",
+    "query": "Diagnose the robot."
+  },
+  "summary": {
+    "runs": 5,
+    "valid_runs": 5,
+    "diagnosis_success_rate": 0.8,
+    "repair_success_rate": 1.0,
+    "verification_success_rate": 0.8,
+    "median_diagnosis_time_s": 84.6,
+    "median_total_time_s": 89.6,
+    "median_tool_calls": 2
+  },
+  "results": [
+    {
+      "fault": "controller_crash",
+      "expected_component": "base_controller",
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "base_controller",
+      "root_cause": "base_controller process exited with error code 1, causing node to be missing",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E2 (get_ros_health): 1 expected node(s) missing: /base_controller",
+        "E4 (get_component_status): Process for base_controller has exited (exit code 1)"
+      ],
+      "diagnosis_success": true,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 84.6,
+      "total_time_s": 89.6,
+      "tool_calls": 2,
+      "tools_used": [
+        "get_ros_health",
+        "get_component_status"
+      ],
+      "llm_calls": 2,
+      "llm_seconds": 84.5,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "516e2bf432",
+      "repeat": 1
+    },
+    {
+      "fault": "lidar_failure",
+      "expected_component": "lidar_driver",
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "lidar_driver",
+      "root_cause": "lidar_driver failed to communicate with serial device /dev/ttyUSB0 causing /scan data loss",
+      "evidence_score": 0.45,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): lidar_driver reports ERROR: No data from device for 16.9s (serial read timeout on /dev/ttyUSB0)",
+        "E5 (get_recent_diagnostics): obstacle_monitor reports ERROR: LaserScan on /scan is stale (last: 17.1s) - obstacle detection disabled"
+      ],
+      "diagnosis_success": true,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 81.0,
+      "total_time_s": 86.3,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics",
+        "inspect_parameters"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 81.1,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "d5edeb00ee",
+      "repeat": 1
+    },
+    {
+      "fault": "tf_failure",
+      "expected_component": "tf_broadcaster",
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "tf_broadcaster",
+      "root_cause": "tf_broadcaster is publishing TF transforms too infrequently (20 Hz) causing 22.5s stale transforms that disable obstacle detection",
+      "evidence_score": 0.45,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): obstacle_monitor reports ERROR: Cannot transform base_link<-laser: transform is 22.5s old - obstacle detection disabled",
+        "E5 (get_recent_diagnostics): Diagnostics from tf_broadcaster are STALE: no update for 24s (last message: 'Broadcasting base_link->laser')"
+      ],
+      "diagnosis_success": true,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 43.2,
+      "total_time_s": 48.6,
+      "tool_calls": 2,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics"
+      ],
+      "llm_calls": 2,
+      "llm_seconds": 43.1,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "7f96f468f9",
+      "repeat": 1
+    },
+    {
+      "fault": "topic_misconfig",
+      "expected_component": "base_controller",
+      "baseline_healthy": true,
+      "final_phase": "inconclusive",
+      "diagnosed_component": "wheel_odometry",
+      "root_cause": "The /wheel_odometry node is not running, causing /odom to be missing (E4) and breaking obstacle detection",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E4 (measure_topic_rate): /odom does not exist - nothing to measure",
+        "E5 (inspect_node): Node /wheel_odometry (odometry from wheel velocities) is expected but NOT running"
+      ],
+      "diagnosis_success": false,
+      "repair_executed": true,
+      "verification_success": false,
+      "rounds": 2,
+      "diagnosis_time_s": 114.0,
+      "total_time_s": 443.7,
+      "tool_calls": 5,
+      "tools_used": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "inspect_node",
+        "inspect_node",
+        "inspect_node"
+      ],
+      "llm_calls": 8,
+      "llm_seconds": 431.5,
+      "rejected_diagnoses": 3,
+      "error": null,
+      "investigation_id": "cf38541ed9",
+      "repeat": 1
+    },
+    {
+      "fault": "node_crash",
+      "expected_component": "obstacle_monitor",
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "obstacle_monitor",
+      "root_cause": "obstacle_monitor process crashed with exit code 134",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E2 (get_ros_health): 1 expected node(s) missing: /obstacle_monitor",
+        "E4 (get_component_status): Process for obstacle_monitor has exited (exit code 134)"
+      ],
+      "diagnosis_success": true,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 166.1,
+      "total_time_s": 171.2,
+      "tool_calls": 2,
+      "tools_used": [
+        "get_ros_health",
+        "get_component_status"
+      ],
+      "llm_calls": 2,
+      "llm_seconds": 166.0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "cbf8205a1c",
+      "repeat": 1
+    }
+  ]
+}

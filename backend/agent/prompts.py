@@ -29,6 +29,8 @@ HOW TO WORK
   Find the component where the problem ORIGINATES, not the one that complains.
 - A node can be running but broken (stalled, hung, misconfigured): check rates, TF freshness, parameters.
 - Do not repeat a tool call with the same arguments.
+- Before submitting, confirm your hypothesis with at least one direct check of the affected data flow
+  (inspect_topic, measure_topic_rate, check_tf, inspect_parameters or get_recent_logs).
 - When the evidence identifies the root cause, call submit_diagnosis with the evidence IDs that prove it
   (at least 2, including anomalies about the faulty component) and recommended_action.
 - restart_component restarts a component with its correct default configuration; it fixes crashed,
@@ -38,8 +40,9 @@ HOW TO WORK
 """
 
 
-def system_prompt(max_steps: int) -> str:
-    return SYSTEM.format(robot=robot_summary(), max_steps=max_steps)
+def system_prompt(max_steps: int, think: bool = True) -> str:
+    text = SYSTEM.format(robot=robot_summary(), max_steps=max_steps)
+    return text if think else text + "\n/no_think"
 
 
 def user_prompt(query: str, initial_observation: str) -> str:

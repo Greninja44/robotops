@@ -127,7 +127,7 @@ class Agent:
         if not result.success:
             raise RuntimeError(f"cannot observe the ROS system: {result.error}")
         inv.messages = [
-            {"role": "system", "content": prompts.system_prompt(self.max_steps)},
+            {"role": "system", "content": prompts.system_prompt(self.max_steps, llm.THINK)},
             {"role": "user", "content": prompts.user_prompt(inv.query, format_for_llm(result, evidence))},
         ]
         inv.transition(Phase.INVESTIGATING)
@@ -149,6 +149,8 @@ class Agent:
             reply = await self.chat(inv.messages, self.tools)
             inv.llm_calls += 1
             inv.llm_seconds += reply.seconds
+            self._log(inv, "llm_call", seconds=round(reply.seconds, 1), tokens=reply.eval_tokens,
+                      tool_calls=[tc.name for tc in reply.tool_calls])
             for m in reply.malformed:
                 inv.emit("warning", text=f"Malformed model output ignored: {m}")
             if not reply.tool_calls:
