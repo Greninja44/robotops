@@ -77,7 +77,7 @@ function build(graph: Graph | null, marks: Marks): { nodes: Node<RosData>[]; edg
   let extra = 0
   const place = (id: string): { x: number; y: number } => {
     const p = LAYOUT[id]
-    if (p) return { x: p[0], y: p[1] }
+    if (p) return { x: p[0] * 0.8, y: p[1] * 0.95 }
     const pos = { x: 240 + (extra % 4) * 230, y: -90 - Math.floor(extra / 4) * 70 }
     extra++
     return pos

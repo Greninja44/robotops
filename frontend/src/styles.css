@@ -78,10 +78,10 @@ main { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(380px, 1fr
 .lg-ok { border-color: var(--ok); } .lg-bad { border-color: var(--bad); border-style: dashed; }
 .lg-probe { border-color: var(--probe); } .lg-root { border-color: var(--bad); background: var(--bad); }
 .react-flow__handle { opacity: 0; }
-.gnode { min-width: 150px; padding: 7px 10px; border-radius: 9px; background: var(--panel-2); border: 1.5px solid var(--border-2); text-align: center; position: relative; transition: all .3s; }
+.gnode { min-width: 140px; padding: 7px 10px; border-radius: 9px; background: var(--panel-2); border: 1.5px solid var(--border-2); text-align: center; position: relative; transition: all .3s; }
 .gnode-topic { border-radius: 999px; min-width: 140px; background: #0e1a22; }
 .gnode-tf { border-style: dotted; background: #111722; }
-.gnode-label { font-family: var(--mono); font-size: 12.5px; font-weight: 600; }
+.gnode-label { font-family: var(--mono); font-size: 13px; font-weight: 600; }
 .gnode-sub { font-size: 10.5px; color: var(--muted); font-family: var(--mono); }
 .gnode.st-ok { border-color: rgba(34, 197, 94, .55); }
 .gnode-node.st-ok .gnode-label::before { content: '●'; color: var(--ok); margin-right: 6px; font-size: 9px; vertical-align: 2px; }
@@ -117,7 +117,7 @@ main { display: grid; grid-template-columns: minmax(0, 1.55fr) minmax(380px, 1fr
 .linkish { background: none; border: 0; color: var(--accent); padding: 0; font-size: 12px; }
 .basis { margin: 4px 0 0; padding-left: 16px; font-size: 11.5px; color: var(--muted); }
 .repair-action { margin: 0; font-size: 15px; }
-.risk { font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .6px; }
+.risk { white-space: nowrap; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 999px; text-transform: uppercase; letter-spacing: .6px; }
 .risk-low { background: var(--ok-dim); color: var(--ok); }
 .risk-medium { background: var(--warn-dim); color: var(--warn); }
 .risk-high { background: var(--bad-dim); color: var(--bad); }

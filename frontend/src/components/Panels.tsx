@@ -208,7 +208,7 @@ export function FaultPanel({ busy, lastFault }: { busy: boolean; lastFault: { fa
         {FAULTS.map(([id, label]) => (
           <button key={id} disabled={working || busy} onClick={() => run('/api/faults/inject', { fault: id }, `Injected: ${label}`)}>{label}</button>
         ))}
-        <button className="random" disabled={working || busy} onClick={() => run('/api/faults/inject', { fault: 'random' }, 'Injected a random fault — its identity is hidden from you and from the agent')}>🎲 Random Failure</button>
+        <button className="random" disabled={working || busy} onClick={() => run('/api/faults/inject', { fault: 'random' }, 'Injected a random fault — its identity is hidden from you and from the agent')}>Random Failure</button>
       </div>
       <div className="fault-foot">
         <button className="reset" disabled={working || busy} onClick={() => run('/api/demo/reset', {}, 'Robot reset to healthy configuration')}>↺ Reset robot</button>

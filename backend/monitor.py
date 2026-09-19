@@ -17,7 +17,7 @@ from backend.ros_tools.client import RosClient
 from backend.ros_tools.common import manifest
 
 HEALTHY, DEGRADED, FAILED, UNKNOWN = "HEALTHY", "DEGRADED", "FAILED", "UNKNOWN"
-GRAPH_TOPICS_HIDDEN = {"/rosout", "/parameter_events", "/diagnostics", "/tf_static"}
+GRAPH_TOPICS_HIDDEN = {"/rosout", "/parameter_events", "/diagnostics", "/tf", "/tf_static"}  # TF is drawn as its own nodes
 
 
 class Monitor:
