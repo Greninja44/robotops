@@ -143,6 +143,15 @@ async def test_duplicate_calls_are_not_executed_twice(env):
     assert inv.tool_calls == 2                                       # baseline + one real call
 
 
+async def test_baseline_health_check_is_not_repeated_by_the_model(env):
+    agent, _ = make_agent(env, [call("get_ros_health"), call("get_component_status"), diag(ids=("E2", "E4"))],
+                          auto_approve=True)
+    inv = Investigation("q")
+    await agent.run(inv)
+    assert inv.tool_calls == 2                                       # baseline + get_component_status only
+    assert inv.phase == Phase.RESOLVED
+
+
 async def test_unknown_tool_from_llm_is_a_failed_tool_not_an_execution(env):
     agent, _ = make_agent(env, [call("restart_component", target="base_controller"), diag(ids=("E2", "E3"))],
                           auto_approve=True)

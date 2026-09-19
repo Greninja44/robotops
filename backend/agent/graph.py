@@ -136,6 +136,8 @@ class Agent:
         steps = nudges = rejected = 0
         forced = False
         seen: dict[str, list[str]] = {}
+        if inv.round == 1:  # the baseline get_ros_health was already run automatically; don't spend a step repeating it
+            seen["get_ros_health" + json.dumps({}, sort_keys=True)] = [e.id for e in inv.ledger.items.values() if e.step == 1]
         llm_turns = 0
         while True:
             llm_turns += 1

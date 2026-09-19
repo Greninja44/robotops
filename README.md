@@ -6,7 +6,7 @@
 > root cause, proposes a repair, waits for a human to approve it, fixes the robot, and then **independently verifies**
 > that it really recovered.
 
-![RobotOps dashboard](docs/screenshots/01_healthy.png)
+![RobotOps dashboard](docs/screenshots/03_awaiting_approval.png)
 
 ## Problem
 
@@ -116,9 +116,15 @@ Private model reasoning is never stored or displayed; the timeline shows tool ca
 
 ## Screenshots
 
-| Fault injected (LiDAR) | Finished run |
+Real captures of the running system (`scripts/screenshot.py`), one full demo cycle:
+
+| 1. Healthy baseline | 2. Fault injected (controller crash) |
 |---|---|
-| ![fault](docs/screenshots/02_fault.png) | ![done](docs/screenshots/01_healthy.png) |
+| ![healthy](docs/screenshots/01_healthy.png) | ![fault](docs/screenshots/02_fault.png) |
+
+| 3. Evidence-backed diagnosis, waiting for approval | 4. Approved → repaired → independently verified |
+|---|---|
+| ![approval](docs/screenshots/03_awaiting_approval.png) | ![recovered](docs/screenshots/04_recovered.png) |
 
 ## Demo instructions
 
