@@ -228,7 +228,7 @@ uv pip install -p .venv/bin/python fastapi 'uvicorn[standard]' httpx pydantic py
 ./run_demo.sh
 ```
 
-Tests: `.venv/bin/python -m pytest tests -m "not ros"` (82 fast tests, ~1 s) and `.venv/bin/python -m pytest tests -m ros`
+Tests: `.venv/bin/python -m pytest tests -m "not ros"` (83 fast tests, ~1 s) and `.venv/bin/python -m pytest tests -m ros`
 (19 tests against the live demo robot, ~15 min; skipped automatically if `scripts/start_demo.sh` isn't running). See `docs/ENVIRONMENT.md` for what was detected on the dev machine.
 
 ## Limitations

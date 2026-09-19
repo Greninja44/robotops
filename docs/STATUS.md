@@ -20,7 +20,7 @@
 - **Model quality**: `qwen3:4b` is the only installed model that completes investigations. `llama3.2:3b` never submitted a
   valid diagnosis in the benchmark (5/5 inconclusive — the safety gate held and no repair was attempted).
   See benchmark files for both.
-- **Test suite**: `pytest -m "not ros"` = 82 tests, ~1 s. `pytest -m ros` = 19 live-ROS tests (~15 min); all 18 integration
+- **Test suite**: `pytest -m "not ros"` = 83 tests, ~1 s. `pytest -m ros` = 19 live-ROS tests (~15 min); all 18 integration
   tests passed (16 in the full run, 2 re-run after fixing a bug in the tests themselves) and the live API test passed.
 - **Latency**: ~7–50 s per LLM step on the 6 GB laptop GPU shared with Windows; a full diagnosis takes ~45–170 s.
 - **DDS on WSL2**: cross-process messages >1.4 KB are dropped unless Cyclone fragments below the MTU
