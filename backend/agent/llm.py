@@ -10,7 +10,7 @@ import httpx
 OLLAMA_URL = os.environ.get("ROBOTOPS_OLLAMA_URL", "http://127.0.0.1:11434")
 MODEL = os.environ.get("ROBOTOPS_MODEL", "qwen3:4b")
 TIMEOUT_S = float(os.environ.get("ROBOTOPS_LLM_TIMEOUT", "120"))
-THINK = os.environ.get("ROBOTOPS_THINK", "1") == "1"
+THINK = os.environ.get("ROBOTOPS_THINK", "0") == "1"   # thinking off: ~2x faster steps, same diagnoses in our runs
 
 
 class LLMUnavailable(RuntimeError):

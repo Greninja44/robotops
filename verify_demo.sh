@@ -42,8 +42,8 @@ RES=$(curl -sf -m 20 -X POST "$API/api/faults/inject" -H 'content-type: applicat
 [[ "$(echo "$RES" | jget "d['ok']")" == "True" ]] && ok "fault injected (controller_crash)" || bad "fault injected"
 not_healthy() { ! healthy; }
 wait_for 25 not_healthy && ok "system health left HEALTHY (a real component failed)" || bad "system health left HEALTHY"
-NODES=$(curl -sf -m 20 -X POST "$API/api/tools/list_nodes" -H 'content-type: application/json' -d '{"args":{}}' || echo '{}')
-[[ "$(echo "$NODES" | jget "'/base_controller' in d['data']['expected_missing']")" == "True" ]] && ok "list_nodes sees /base_controller missing" || bad "list_nodes sees /base_controller missing"
+node_missing() { curl -sf -m 20 -X POST "$API/api/tools/list_nodes" -H 'content-type: application/json' -d '{"args":{}}' | jget "'/base_controller' in d['data']['expected_missing']" | grep -q True; }
+wait_for 20 node_missing && ok "list_nodes sees /base_controller missing" || bad "list_nodes sees /base_controller missing"
 
 if [[ $FULL == 1 ]]; then
   echo "-- full loop (LLM investigation -> approval -> repair -> verification)"
