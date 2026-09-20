@@ -31,11 +31,13 @@ gh repo edit Greninja44/robotops \
 
 ## Pre-submission checklist
 
+- [ ] CI is green on GitHub (`.github/workflows/ci.yml` has only been validated locally; the first push shows whether the hosted runner agrees)
 - [ ] `LICENSE` added (or decision recorded)
 - [ ] Repository public, or judges invited
 - [ ] Description and topics set
 - [ ] README first screen looks right on github.com (GIF plays, Mermaid diagram renders, screenshots load)
 - [ ] `./demo_preflight.sh` prints `ROBOTOPS DEMO READY` on the machine you will show it on
+- [ ] Optional: publish v1.0.0 with `docs/RELEASE_NOTES.md` (the command is inside that file)
 - [ ] Fast tests pass: `.venv/bin/python -m pytest tests -m "not ros"`
 
 ## Clean-clone check
