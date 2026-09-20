@@ -69,18 +69,16 @@ def busy_processes(min_cpu: float = 60.0) -> list[dict]:
         if not m or float(m.group(2)) < min_cpu:
             continue
         args = m.group(4)
-        if "ollama" in args.lower() or "llama" in args.lower():
-            continue  # the model server itself
+        if "ollama" in args.lower() or "llama" in args.lower() or "ms-playwright" in args:
+            continue  # the model server itself / our own screenshot browser
         res.append({"pid": int(m.group(1)), "cpu": float(m.group(2)), "rss_mb": int(m.group(3)) // 1024,
-                    "cmd": args[:90], "ours": any(x in args for x in OWN_HEAVY)})
+                    "cmd": " ".join(args.split()[:4])[:70], "ours": any(x in args for x in OWN_HEAVY)})
     return res
 
 
 def stop_own_heavy_processes() -> list[int]:
     """Terminate OUR benchmark/profiler processes (never anything else). Returns stopped PIDs."""
     stopped = []
-    for p in busy_processes(min_cpu=0.0):
-        pass
     out = _run(["ps", "-eo", "pid,args"]) or ""
     for line in out.splitlines()[1:]:
         m = re.match(r"\s*(\d+)\s+(.*)", line)
@@ -109,8 +107,9 @@ def check_environment() -> list[dict]:
     return out
 
 
-def check_robot(client) -> list[dict]:
-    """Discovery, expected nodes/topics, TF, odometry, diagnostics: reuse the production verifier (24 live checks)."""
+def check_robot(client, health: dict | None = None) -> list[dict]:
+    """Discovery + robot health. Full mode (health=None) reuses the production verifier (24 live checks, ~2 s of
+    sampling). Light mode uses the dashboard monitor's current health (cheap; used for the live readiness chips)."""
     from backend.agent import verification
     out = []
     try:
@@ -122,6 +121,11 @@ def check_robot(client) -> list[dict]:
     missing = [n for n in expected if n not in nodes]
     out.append(check("discovery", "DDS discovery / expected nodes", PASS if not missing else FAIL,
                      f"all {len(expected)} nodes visible" if not missing else f"missing: {', '.join(missing)}"))
+    if health is not None:
+        bad = {k: v for k, v in (health.get("components") or {}).items() if v["state"] != "HEALTHY"}
+        out.append(check("robot_health", "Robot health (live monitor)", PASS if not bad else FAIL,
+                         "all components HEALTHY" if not bad else "; ".join(f"{k} {v['state']}: {v['detail']}" for k, v in bad.items())))
+        return out
     checks = verification.run_checks(client, None)
     groups = {"topics": lambda c: "publishing" in c["check"] or "subscribed" in c["check"],
               "tf": lambda c: c["check"].startswith("TF "),
@@ -193,15 +197,13 @@ def check_host() -> list[dict]:
 def check_services(api_url: str | None) -> list[dict]:
     out = []
     try:
-        f = supervisor.faults() if hasattr(supervisor, "faults") else None
         r = httpx.get(f"{supervisor.SUPERVISOR_URL}/faults", timeout=3).json()["faults"]
         out.append(check("injector", "Fault injector", PASS if len(r) >= 5 else FAIL, f"{len(r)} fault types available"))
         st = supervisor.status(3.0)
         running = [n for n, c in st.items() if c["state"] == "running"]
         allow = len(policies.REPAIRABLE)
-        out.append(check("repair", "Repair service (allowlisted)", PASS if len(running) == len(st) and allow else FAIL,
-                         f"supervisor up, {len(running)}/{len(st)} processes running, {allow} allowlisted components"))
-        _ = f
+        out.append(check("repair", "Repair service (allowlisted)", PASS if allow and st else FAIL,
+                         f"supervisor reachable, {allow} allowlisted components ({len(running)}/{len(st)} demo processes running)"))
     except Exception as e:  # noqa: BLE001
         out.append(check("injector", "Fault injector", FAIL, f"demo supervisor unreachable ({type(e).__name__})"))
         out.append(check("repair", "Repair service (allowlisted)", FAIL, "demo supervisor unreachable"))
@@ -221,17 +223,26 @@ def check_services(api_url: str | None) -> list[dict]:
 
 
 # ---------------------------------------------------------------------------- aggregate
+# Checks about the robot's current state (an injected fault makes these fail on purpose during a demo).
+ROBOT_STATE = {"discovery", "robot_health", "topics", "tf", "motion", "diagnostics", "verification"}
+
+
 def summarize(checks: list[dict]) -> dict:
+    """ready = everything passes (start a demo now); infra_ready = the tooling is fine even if a fault is active."""
     failed = [c for c in checks if c["status"] == FAIL]
+    infra_failed = [c for c in failed if c["id"] not in ROBOT_STATE]
     warned = [c for c in checks if c["status"] == WARN]
-    return {"ready": not failed, "reason": "; ".join(f"{c['label']}: {c['detail']}" for c in failed[:2]) or None,
-            "warnings": [f"{c['label']}: {c['detail']}" for c in warned], "checks": checks, "ts": time.time()}
+    reason = lambda cs: "; ".join(f"{c['label']}: {c['detail']}" for c in cs[:2]) or None   # noqa: E731
+    return {"ready": not failed, "reason": reason(failed), "infra_ready": not infra_failed,
+            "infra_reason": reason(infra_failed), "warnings": [f"{c['label']}: {c['detail']}" for c in warned],
+            "checks": checks, "ts": time.time()}
 
 
-async def run_preflight(client, *, warm: bool = True, api_url: str | None = None) -> dict:
-    """Full preflight. `warm=True` runs a real generation to prove the model responds."""
+async def run_preflight(client, *, warm: bool = True, api_url: str | None = None, health: dict | None = None) -> dict:
+    """Preflight. `warm=True` runs a real generation to prove the model responds; `health` (dashboard monitor
+    snapshot) switches the robot check to its cheap live mode."""
     checks = check_environment()
-    checks += await asyncio.to_thread(check_robot, client)
+    checks += await asyncio.to_thread(check_robot, client, health)
     checks += await check_llm(warm)
     checks += await asyncio.to_thread(check_host)
     checks += await asyncio.to_thread(check_services, api_url)
@@ -251,7 +262,7 @@ def chips(checks: list[dict], health_overall: str | None = None) -> dict:
     return {"ros": st("ros_env", "ros_client"), "agent": st("backend", "injector", "repair") if "backend" in by else st("injector", "repair"),
             "ollama": st("ollama"),
             "model": ("WARM" if model and model["status"] != FAIL else "COLD") if model else "UNKNOWN",
-            "dds": st("dds_config", "discovery")}
+            "dds": st("dds_config", "ros_client")}
 
 
 async def _main():
