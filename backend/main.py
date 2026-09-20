@@ -16,12 +16,14 @@ from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
+from backend import readiness
 from backend.agent import llm
 from backend.agent.graph import Agent
 from backend.agent.state import Investigation, Phase
 from backend.monitor import Monitor
 from backend.ros_tools import logs, registry, supervisor
 from backend.ros_tools.client import get_client
+from backend.ros_tools.common import manifest
 from backend.safety import policies
 from backend.safety.approvals import ApprovalError, ApprovalRegistry
 from backend.safety.audit import AuditLog
@@ -62,6 +64,8 @@ class State:
         self.last_health: dict | None = None
         self.last_graph: dict | None = None
         self.ros_error: str | None = None
+        self.readiness: dict | None = None
+        self.preparing: str | None = "starting"      # human-readable step while START DEMO preparation runs
 
 
 S = State()
@@ -79,6 +83,50 @@ async def _poll_loop():
         await asyncio.sleep(1.5)
 
 
+async def _readiness_loop():
+    """Cheap readiness snapshot every 4 s for the dashboard chips / READY FOR DEMO banner."""
+    while True:
+        try:
+            res = await readiness.run_preflight(S.client, warm=False, api_url=None, health=S.last_health or {"components": {}})
+            res["chips"] = readiness.chips(res["checks"])
+            res["preparing"] = S.preparing
+            S.readiness = res
+            S.hub.publish({"type": "readiness", "readiness": res})
+        except Exception as e:  # noqa: BLE001
+            S.hub.publish({"type": "system_error", "error": f"readiness: {e}"})
+        await asyncio.sleep(4)
+
+
+async def _prepare(reset: bool = True) -> dict:
+    """START DEMO preparation: stop our own heavy jobs, clear stale faults, warm the model, verify everything.
+    Uses the real robot and the real model; nothing is simulated."""
+    def step(text):
+        S.preparing = text
+        S.hub.publish({"type": "prepare_step", "text": text})
+    try:
+        step("Stopping background benchmark/profiler processes")
+        stopped = await asyncio.to_thread(readiness.stop_own_heavy_processes)
+        if reset:
+            step("Resetting robot to a healthy configuration")
+            await asyncio.to_thread(supervisor.reset)
+            logs.state["since"] = time.time()
+            for _ in range(40):                       # wait for DDS discovery of all restarted nodes
+                await asyncio.sleep(1.5)
+                if not [n for n in manifest()["nodes"] if n not in S.client.node_names()]:
+                    break
+        step("Warming the language model")
+        res = await readiness.run_preflight(S.client, warm=True, api_url=None)
+        step("Verifying ROS graph, topics, TF and odometry")
+        res["chips"] = readiness.chips(res["checks"])
+        res["stopped_processes"] = stopped
+        S.readiness = res
+        S.hub.publish({"type": "readiness", "readiness": res})
+        return res
+    finally:
+        S.preparing = None
+        S.hub.publish({"type": "prepare_step", "text": None})
+
+
 def _persist(inv: Investigation):
     INVESTIGATION_DIR.mkdir(parents=True, exist_ok=True)
     (INVESTIGATION_DIR / f"{inv.id}.json").write_text(json.dumps(inv.summary(), default=str))
@@ -92,8 +140,11 @@ async def lifespan(app: FastAPI):
     except Exception as e:  # noqa: BLE001 - backend still serves UI/API with ROS marked unavailable
         S.ros_error = str(e)
     poller = asyncio.create_task(_poll_loop())
+    ready_task = asyncio.create_task(_readiness_loop())
+    asyncio.create_task(_prepare(reset=False))       # warm the model at startup so the first investigation is fast
     yield
     poller.cancel()
+    ready_task.cancel()
     S.client.shutdown()
 
 
@@ -111,6 +162,26 @@ async def status():
     return {"backend": "ok", "ros": {"available": S.client.available, "error": S.ros_error},
             "llm": await llm.status(), "supervisor": {"reachable": sup_ok},
             "investigation_running": bool(S.current and not S.current.done)}
+
+
+@app.get("/api/readiness")
+async def get_readiness():
+    return S.readiness or {"ready": False, "reason": "starting", "checks": [], "chips": {}, "preparing": S.preparing}
+
+
+@app.post("/api/demo/prepare")
+async def prepare_demo():
+    """START DEMO: clean slate + model warm + full preflight. Returns the readiness result."""
+    if S.current and not S.current.done:
+        raise HTTPException(409, "an investigation is running")
+    if S.preparing:
+        raise HTTPException(409, f"already preparing: {S.preparing}")
+    S.preparing = "starting"
+    res = await _prepare(reset=True)
+    S.audit.write(None, "demo_prepared", ready=res["ready"], reason=res.get("reason"))
+    S.current = None
+    S.hub.publish({"type": "demo_reset", "ts": time.time()})
+    return res
 
 
 @app.get("/api/health")
@@ -271,7 +342,7 @@ async def ws(websocket: WebSocket):
     q: asyncio.Queue = asyncio.Queue()
     S.hub.queues.add(q)
     try:
-        await websocket.send_json({"type": "hello", "health": S.last_health, "graph": S.last_graph,
+        await websocket.send_json({"type": "hello", "health": S.last_health, "graph": S.last_graph, "readiness": S.readiness,
                                    "investigation": S.current.summary() if S.current else None})
         while True:
             msg = await q.get()
