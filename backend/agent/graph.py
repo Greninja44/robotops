@@ -28,7 +28,7 @@ from .state import Investigation, Phase
 
 MAX_STEPS = 10           # diagnostic tool calls per round
 MAX_ROUNDS = 2           # a failed verification sends the agent back to investigate once
-MAX_REJECTED_DIAGNOSES = 3
+MAX_REJECTED_DIAGNOSES = 5
 MAX_NUDGES = 2
 APPROVAL_TIMEOUT_S = 15 * 60
 MAX_CALLS_PER_TURN = 2
@@ -115,6 +115,18 @@ class Agent:
                   error=inv.error, verification=(inv.verification or {}).get("verified"))
         return inv
 
+    def _selectable_tools(self, seen: dict, allow_diagnose: bool = True, only_diagnose: bool = False,
+                          exclude: frozenset | set = frozenset()) -> list[dict]:
+        """What the model may choose this turn. Parameterless tools it already ran are removed (no pointless
+        repeats) and submit_diagnosis is removed while the process rules say it may not conclude yet."""
+        if only_diagnose:
+            return [t for t in self.tools if t["function"]["name"] == "submit_diagnosis"]
+        used = {k[:-2] for k in seen if k.endswith("{}")} | set(exclude)
+        avail = [t for t in self.tools if t["function"]["name"] not in used
+                 and (allow_diagnose or t["function"]["name"] != "submit_diagnosis")]
+        return avail if any(t["function"]["name"] != "submit_diagnosis" for t in avail) else \
+            [t for t in self.tools if allow_diagnose or t["function"]["name"] != "submit_diagnosis"]
+
     def _on_model_event(self, inv: Investigation, d: dict):
         d = dict(d)
         kind = d.pop("kind")
@@ -136,7 +148,7 @@ class Agent:
             raise RuntimeError(f"cannot observe the ROS system: {result.error}")
         inv.messages = [
             {"role": "system", "content": prompts.system_prompt(self.max_steps, llm.THINK)},
-            {"role": "user", "content": prompts.user_prompt(inv.query, format_for_llm(result, evidence))},
+            {"role": "user", "content": prompts.user_prompt(inv.query, format_for_llm(result, evidence, ledger=inv.ledger))},
         ]
         inv.transition(Phase.INVESTIGATING)
 
@@ -145,6 +157,8 @@ class Agent:
         forced = False
         seen: dict[str, list[str]] = {}
         own_checks = 0
+        block_diagnose = False      # set after a rejected diagnosis: the next turn must be a new check, not a resubmission
+        repeat_blocked: set[str] = set()   # tools the model just tried to repeat verbatim: unavailable for the next turn
         if inv.round == 1:  # the baseline get_ros_health was already run automatically; don't spend a step repeating it
             seen["get_ros_health" + json.dumps({}, sort_keys=True)] = [e.id for e in inv.ledger.items.values() if e.step == 1]
         llm_turns = 0
@@ -157,7 +171,9 @@ class Agent:
                 forced = True
                 inv.messages.append({"role": "user", "content": prompts.FORCE_DIAGNOSIS})
                 inv.emit("note", text=f"Step budget ({self.max_steps}) reached - asking for a diagnosis")
-            reply = await self.chat(inv.messages, self.tools)
+            allow = forced or (own_checks >= MIN_OWN_CHECKS and not block_diagnose)
+            reply = await self.chat(inv.messages, self._selectable_tools(
+                seen, allow_diagnose=allow, only_diagnose=forced, exclude=repeat_blocked))
             inv.llm_calls += 1
             inv.llm_seconds += reply.seconds
             inv.emit("llm_call", n=inv.llm_calls, tools=[tc.name for tc in reply.tool_calls], **reply.metrics)
@@ -197,6 +213,7 @@ class Agent:
                                   evidence=[e.id for e in diag.evidence])
                         return diag
                     rejected += 1
+                    block_diagnose = True
                     inv.emit("diagnosis_rejected", errors=errors, submitted=tc.arguments)
                     self._log(inv, "diagnosis_rejected", errors=errors)
                     if rejected >= MAX_REJECTED_DIAGNOSES:
@@ -213,7 +230,7 @@ class Agent:
                     continue
                 key = tc.name + json.dumps(args, sort_keys=True, default=str)
                 if key in seen:
-                    steps += 1
+                    repeat_blocked = {tc.name}       # duplicates do not consume the step budget; the tool is withheld next turn
                     used = {k.split("{")[0] for k in seen}
                     unused = [t for t in registry.READ_ONLY_TOOLS if t not in used]
                     inv.messages.append({"role": "tool", "tool_name": tc.name, "content": (
@@ -223,9 +240,11 @@ class Agent:
                 steps += 1
                 result, evidence = await self._run_tool(inv, tc.name, args, reason)
                 own_checks += 1
+                block_diagnose = False
+                repeat_blocked = set()
                 seen[key] = [e.id for e in evidence]
                 inv.messages.append({"role": "tool", "tool_name": tc.name,
-                                     "content": format_for_llm(result, evidence)})
+                                     "content": format_for_llm(result, evidence, ledger=inv.ledger)})
 
     async def _approval(self, inv: Investigation, diag) -> bool:
         act = diag.recommended_action

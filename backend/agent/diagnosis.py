@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from backend.safety import policies
 
-from .evidence import Evidence, EvidenceLedger
+from .evidence import Evidence, EvidenceLedger, anomaly_digest
 
 NONE = "none"
 
@@ -119,7 +119,8 @@ def validate(raw: dict, ledger: EvidenceLedger) -> tuple[Diagnosis | None, list[
     try:
         policies.repair_gate(cited, component)
     except policies.PolicyViolation as e:
-        return None, [f"insufficient evidence: {e}. Investigate further, then resubmit."]
+        return None, [f"insufficient evidence: {e}. Anomalies observed so far:\n{anomaly_digest(ledger)}\n"
+                      f"Reconsider which component those anomalies point to, check it, then resubmit."]
 
     score, basis = evidence_score(cited, supporting)
     rec = None

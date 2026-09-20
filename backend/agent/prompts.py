@@ -43,7 +43,7 @@ Investigate: {{"reason_summary":"<one short sentence>","action":"tool","tool":"<
 Conclude:    {{"reason_summary":"<one short sentence>","action":"diagnose","root_cause":"<what failed and how>","faulty_component":"<component name or none>","evidence_ids":["E2","E5"],"recommended_action":"restart_component"|"none"}}
 
 Rules:
-- Findings carry IDs (E4). [ANOMALY] means deviation from the normal architecture above.
+- Findings carry IDs (E4). [ANOMALY] means deviation from the normal architecture above; an [ok] finding is healthy and is NEVER evidence of a fault.
 - Trace symptoms upstream to where the problem ORIGINATES, not to the node that complains.
 - A node can be running but broken (stalled, hung, misconfigured): check rates, TF freshness, parameters.
 - Do not repeat a call. You have at most {max_steps} tool calls; usually 2-4 are enough.

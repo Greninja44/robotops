@@ -50,12 +50,22 @@ class EvidenceLedger:
         return len(self.items)
 
 
-def format_for_llm(result: ToolResult, evidence: list[Evidence], max_data_chars: int = 300) -> str:
-    """Compact tool-result message: cited-able findings first, then truncated raw data."""
+def anomaly_digest(ledger: "EvidenceLedger", limit: int = 6, width: int = 110) -> str:
+    """One line per anomaly observed so far (all steps), so the model keeps the whole picture in view."""
+    items = ledger.anomalies()[-limit:]
+    return "\n".join(f"{e.id} {e.text[:width]}" for e in items) or "(none yet)"
+
+
+def format_for_llm(result: ToolResult, evidence: list[Evidence], max_data_chars: int = 300,
+                   ledger: "EvidenceLedger | None" = None) -> str:
+    """Compact tool-result message: cited-able findings first, then truncated raw data, then the running anomaly digest."""
     if not result.success:
         return f"TOOL FAILED ({result.tool}): {result.error}"
     lines = [f"{e.id} [{'ANOMALY' if e.anomaly else 'ok'}] {e.text}" for e in evidence]
     data = json.dumps(result.data, default=str, separators=(",", ":"))
     if len(data) > max_data_chars:
         data = data[:max_data_chars] + "...(truncated)"
-    return "Findings (cite these IDs):\n" + ("\n".join(lines) or "(none)") + f"\nData: {data}"
+    out = "Findings (cite these IDs):\n" + ("\n".join(lines) or "(none)") + f"\nData: {data}"
+    if ledger is not None:
+        out += f"\nANOMALIES SO FAR (all steps):\n{anomaly_digest(ledger)}"
+    return out

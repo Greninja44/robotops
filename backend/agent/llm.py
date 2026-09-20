@@ -99,13 +99,16 @@ def _metrics(data: dict, extra: dict) -> dict:
 
 
 # ---------------------------------------------------------------------------- JSON decision protocol
-def decision_schema() -> dict:
+def decision_schema(tool_names: list[str] | None = None, actions: list[str] | None = None) -> dict:
+    """JSON schema the model's decision must satisfy. `tool_names` narrows the selectable tools (already-used
+    parameterless tools are removed by the agent so the model cannot loop on them); `actions` narrows the allowed
+    actions (the agent removes "diagnose" while the process rules say the model may not conclude yet)."""
     from backend.ros_tools import registry
     from backend.safety import policies
     return {"type": "object", "properties": {
         "reason_summary": {"type": "string", "maxLength": 140},
-        "action": {"enum": ["tool", "diagnose"]},
-        "tool": {"enum": list(registry.READ_ONLY_TOOLS)},
+        "action": {"enum": actions or ["tool", "diagnose"]},
+        "tool": {"enum": tool_names or list(registry.READ_ONLY_TOOLS)},
         "arguments": {"type": "object", "properties": {
             "topic": {"type": "string"}, "node": {"type": "string"}, "duration": {"type": "number"},
             "parent_frame": {"type": "string"}, "child_frame": {"type": "string"}}},
@@ -150,9 +153,12 @@ def parse_decision(text: str) -> tuple[ToolCall | None, str | None, str]:
 
 
 async def decide(messages: list[dict], tools: list[dict] | None = None, model: str = MODEL) -> LLMReply:
-    """One model decision under the JSON protocol. `tools` is accepted for interface parity and ignored."""
+    """One model decision under the JSON protocol. `tools` = the tool specs currently selectable."""
+    names = [t["function"]["name"] for t in (tools or []) if t["function"]["name"] != "submit_diagnosis"]
+    can_diagnose = tools is None or any(t["function"]["name"] == "submit_diagnosis" for t in tools)
+    actions = (["tool"] if names else []) + (["diagnose"] if can_diagnose else [])
     body = {"model": model, "messages": _plain_messages(messages), "stream": False, "think": False,
-            "format": decision_schema(), "keep_alive": KEEP_ALIVE,
+            "format": decision_schema(names or None, actions or None), "keep_alive": KEEP_ALIVE,
             "options": {"temperature": 0.1, "seed": 7, "num_ctx": NUM_CTX, "num_predict": MAX_DECISION_TOKENS}}
     data, extra = await _post("/api/chat", body)
     text = _strip_think((data.get("message") or {}).get("content") or "")

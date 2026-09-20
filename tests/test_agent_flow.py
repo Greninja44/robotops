@@ -116,8 +116,8 @@ async def test_invalid_diagnosis_is_fed_back_and_agent_recovers(env):
     assert inv.phase == Phase.RESOLVED
 
 
-async def test_three_rejected_diagnoses_end_inconclusive_and_no_repair(env):
-    agent, _ = make_agent(env, [diag(ids=("E99",))] * 3)
+async def test_repeated_rejected_diagnoses_end_inconclusive_and_no_repair(env):
+    agent, _ = make_agent(env, [diag(ids=("E99",))] * 5)
     inv = Investigation("q")
     await agent.run(inv)
     assert inv.phase == Phase.INCONCLUSIVE and env["executed"] == []
@@ -348,3 +348,77 @@ def test_tool_arguments_are_normalized_to_declared_parameters():
     from backend.ros_tools import registry
     assert registry.normalize_args("list_nodes", {"node": "base_controller"}) == {}
     assert registry.normalize_args("inspect_topic", {"topic": "/cmd_vel", "node": "x", "duration": None}) == {"topic": "/cmd_vel"}
+
+
+def test_used_parameterless_tools_are_removed_from_the_selectable_set(env):
+    agent, _ = make_agent(env, [])
+    names = lambda seen: {t["function"]["name"] for t in agent._selectable_tools(seen)}   # noqa: E731
+    assert "list_nodes" in names({})
+    n = names({"list_nodes{}": ["E4"], "get_ros_health{}": ["E1"]})
+    assert "list_nodes" not in n and "get_ros_health" not in n and "inspect_topic" in n and "submit_diagnosis" in n
+    assert "inspect_topic" in names({'inspect_topic{"topic": "/cmd_vel"}': ["E5"]})     # tools with arguments stay selectable
+
+
+def test_decision_schema_narrows_the_tool_enum():
+    assert llm.decision_schema(["inspect_topic"])["properties"]["tool"]["enum"] == ["inspect_topic"]
+
+
+def test_diagnose_is_not_selectable_until_the_model_has_made_its_own_checks(env):
+    agent, _ = make_agent(env, [])
+    names = lambda tools: {t["function"]["name"] for t in tools}   # noqa: E731
+    assert "submit_diagnosis" not in names(agent._selectable_tools({}, allow_diagnose=False))
+    assert "submit_diagnosis" in names(agent._selectable_tools({}, allow_diagnose=True))
+    assert names(agent._selectable_tools({}, only_diagnose=True)) == {"submit_diagnosis"}
+
+
+def test_decision_schema_action_enum_follows_what_is_allowed():
+    assert llm.decision_schema(["inspect_topic"], ["tool"])["properties"]["action"]["enum"] == ["tool"]
+    assert llm.decision_schema(None, ["diagnose"])["properties"]["action"]["enum"] == ["diagnose"]
+    assert set(llm.decision_schema()["properties"]["action"]["enum"]) == {"tool", "diagnose"}
+
+
+async def test_the_model_is_offered_no_diagnose_action_until_two_checks_are_done(env):
+    seen_offers = []
+
+    async def chat(messages, tools):
+        seen_offers.append({t["function"]["name"] for t in tools})
+        return [call("inspect_topic", topic="/cmd_vel"), call("get_component_status"), diag(ids=("E2", "E4"))][len(seen_offers) - 1]
+    agent, _ = make_agent(env, [], auto_approve=True)
+    agent.chat = chat
+    inv = Investigation("q")
+    await agent.run(inv)
+    assert "submit_diagnosis" not in seen_offers[0] and "submit_diagnosis" not in seen_offers[1]
+    assert "submit_diagnosis" in seen_offers[2] and inv.phase == Phase.RESOLVED
+
+
+async def test_after_a_rejected_diagnosis_the_next_turn_must_be_a_new_check(env):
+    offers = []
+    script = [call("inspect_topic", topic="/cmd_vel"), call("get_component_status"),
+              diag(ids=("E2", "E3")),                       # rejected: only baseline evidence (corroboration)
+              call("inspect_topic", topic="/scan"), diag(ids=("E2", "E4"))]
+
+    async def chat(messages, tools):
+        offers.append("submit_diagnosis" in {t["function"]["name"] for t in tools})
+        return script[len(offers) - 1]
+    agent, _ = make_agent(env, [], auto_approve=True)
+    agent.chat = chat
+    inv = Investigation("q")
+    await agent.run(inv)
+    assert offers == [False, False, True, False, True]      # turn 4 (right after the rejection) cannot diagnose
+
+
+async def test_a_verbatim_repeat_withholds_that_tool_and_does_not_burn_the_budget(env):
+    offers = []
+    script = [call("inspect_topic", topic="/cmd_vel"), call("inspect_topic", topic="/cmd_vel"),   # repeat
+              call("get_component_status"), diag(ids=("E2", "E4"))]
+
+    async def chat(messages, tools):
+        offers.append({t["function"]["name"] for t in tools})
+        return script[len(offers) - 1]
+    agent, _ = make_agent(env, [], auto_approve=True, max_steps=3)
+    agent.chat = chat
+    inv = Investigation("q")
+    await agent.run(inv)
+    assert "inspect_topic" in offers[1]            # offered again (with other args it would be legitimate)
+    assert "inspect_topic" not in offers[2]        # ... but withheld right after the verbatim repeat
+    assert inv.phase == Phase.RESOLVED and inv.tool_calls == 3          # baseline + 2 real checks; budget of 3 not exhausted
