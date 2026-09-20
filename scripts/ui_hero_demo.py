@@ -24,52 +24,51 @@ QUERY = "Robot stopped moving. Diagnose it."
 
 
 def banner(pg) -> str:
-    return pg.locator(".ready-title").inner_text()
+    return pg.locator('[data-testid="status-bar"]').get_attribute("data-state") or ""
 
 
-def wait_banner(pg, text: str, timeout_s: float):
-    pg.wait_for_function("t => document.querySelector('.ready-title')?.innerText.includes(t)", arg=text,
-                         timeout=timeout_s * 1000)
+def wait_state(pg, state: str, timeout_s: float):
+    """Wait for the status bar's machine-readable state (data-state), independent of the UI copy."""
+    pg.wait_for_selector(f'[data-testid="status-bar"][data-state="{state}"]', timeout=timeout_s * 1000)
 
 
 def incident_card(pg) -> dict:
-    return pg.evaluate("() => Object.fromEntries([...document.querySelectorAll('.incident-grid > div')]"
-                       ".map(d => [d.querySelector('label').innerText, d.querySelector('b').innerText]))")
+    return pg.evaluate("() => { const dl = document.querySelector('[data-testid=incident]'); const o = {};"
+                       " dl.querySelectorAll('dt').forEach(dt => { o[dt.innerText] = dt.nextElementSibling.innerText }); return o }")
 
 
 def one_run(pg, n: int, shots: Path | None) -> dict:
     rec = {"run": n, "ok": False, "stage": "start"}
     t = {}
     try:
-        rec["stage"] = "wait for START DEMO"
-        start = pg.get_by_role("button", name="START DEMO")
-        pg.wait_for_function("() => { const b = [...document.querySelectorAll('button')].find(x => x.innerText === 'START DEMO'); return b && !b.disabled }", timeout=120000)
+        rec["stage"] = "wait for Start demo"
+        pg.wait_for_selector('[data-testid="start-demo"]:not([disabled])', timeout=120000)
         rec["stage"] = "start demo"
         t0 = time.time()
-        start.click()
-        pg.wait_for_function("() => document.querySelector('.ready-title')?.innerText.includes('PREPARING')", timeout=15000)
-        wait_banner(pg, "READY FOR DEMO", 120)
+        pg.locator('[data-testid="start-demo"]').click()
+        wait_state(pg, "preparing", 15)
+        wait_state(pg, "ready", 120)
         rec["prepare_s"] = round(time.time() - t0, 1)
         if shots and n == 1:
             pg.screenshot(path=str(shots / "01_ready.png"))
 
         rec["stage"] = "inject"
         t["inject"] = time.time()
-        pg.get_by_role("button", name="Controller Failure").click()
-        wait_banner(pg, "FAULT DETECTED", 40)
+        pg.locator('[data-testid="inject-controller_crash"]').click()
+        wait_state(pg, "fault", 40)
         rec["fault_visible_s"] = round(time.time() - t["inject"], 1)
         pg.wait_for_timeout(1500)
         if shots and n == 1:
             pg.screenshot(path=str(shots / "02_fault.png"))
 
         rec["stage"] = "investigate"
-        pg.get_by_placeholder("Describe the problem").fill(QUERY)
+        pg.locator('[data-testid="query"]').fill(QUERY)
         t["ask"] = time.time()
-        pg.get_by_role("button", name="Investigate", exact=True).click()
-        pg.wait_for_function("() => document.querySelector('.ready-title')?.innerText.includes('INVESTIGATING')", timeout=15000)
+        pg.locator('[data-testid="run"]').click()
+        wait_state(pg, "investigating", 15)
 
         rec["stage"] = "wait proposal"
-        approve = pg.get_by_role("button", name="APPROVE", exact=True)
+        approve = pg.locator('[data-testid="approve"]')
         approve.wait_for(state="visible", timeout=90000)
         rec["to_proposal_s"] = round(time.time() - t["ask"], 1)
         if shots and n == 1:
@@ -80,7 +79,7 @@ def one_run(pg, n: int, shots: Path | None) -> dict:
         t["approve"] = time.time()
         approve.click()
         rec["stage"] = "wait recovery"
-        pg.locator(".incident-title").wait_for(state="visible", timeout=90000)
+        pg.locator('[data-testid="incident"]').wait_for(state="visible", timeout=90000)
         rec["approve_to_resolved_s"] = round(time.time() - t["approve"], 1)
         rec["ask_to_resolved_s"] = round(time.time() - t["ask"], 1)
         pg.wait_for_timeout(600)

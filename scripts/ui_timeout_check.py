@@ -23,7 +23,7 @@ from playwright.sync_api import sync_playwright
 
 ROOT = Path(__file__).resolve().parents[1]
 STALL_S, TIMEOUT_S = 7.0, 3.0
-mode = {"stall": "first"}     # first | all | none
+mode = {"stall": "first"}     # first | all | none | bad
 hits = {"n": 0}
 
 
@@ -57,6 +57,9 @@ class Fake(BaseHTTPRequestHandler):
             elif mode["stall"] == "first" and hits["n"] == 2:
                 time.sleep(2.0)                          # the retry is slow but succeeds (so "retrying" is visible for ~2 s)
         content = {"reason_summary": "check process status", "action": "tool", "tool": "get_component_status", "arguments": {}}
+        if mode["stall"] == "bad":                      # a diagnosis citing evidence that does not exist -> rejected until INCONCLUSIVE
+            content = {"reason_summary": "guess", "action": "diagnose", "root_cause": "unknown", "faulty_component": "base_controller",
+                       "evidence_ids": ["E99"], "recommended_action": "restart_component"}
         try:
             self._json({"message": {"content": json.dumps(content)}, "eval_count": 20, "total_duration": 1_000_000_000})
         except (BrokenPipeError, ConnectionResetError):
@@ -91,30 +94,30 @@ def main():
             b = p.chromium.launch(executable_path=exe, args=["--no-sandbox"])
             pg = b.new_page(viewport={"width": 1600, "height": 1000})
             pg.goto("http://127.0.0.1:8001")
-            pg.wait_for_function("() => [...document.querySelectorAll('button')].some(x => x.innerText === 'Investigate' && !x.disabled) || document.querySelector('input')", timeout=60000)
+            pg.wait_for_selector('[data-testid="query"]:not([disabled])', timeout=60000)
 
             def ask():
-                pg.get_by_placeholder("Describe the problem").fill("Diagnose the robot.")
-                pg.get_by_role("button", name="Investigate", exact=True).click()
+                pg.locator('[data-testid="query"]').fill("Diagnose the robot.")
+                pg.locator('[data-testid="run"]').click()
 
             # 1) first request stalls -> retried -> continues
             httpx.post("http://127.0.0.1:9099/control", json={"stall": "first"})
             ask()
-            pg.get_by_text("Retrying investigation").wait_for(timeout=20000)
+            pg.get_by_text("no response after 3s - retrying").wait_for(timeout=20000)
             pg.wait_for_timeout(500)
             pg.screenshot(path=str(shots / "01_timeout_retrying.png"))
             print("retry alert visible: YES")
-            pg.get_by_text("Retried automatically and continued").wait_for(timeout=30000)
+            pg.get_by_text("retried, continued").wait_for(timeout=30000)
             pg.wait_for_timeout(300)
             pg.screenshot(path=str(shots / "02_timeout_retried_and_continued.png"))
             print("retry-succeeded state visible: YES")
-            pg.wait_for_function("() => !document.querySelector('.ready-title')?.innerText.includes('INVESTIGATING')", timeout=90000)
+            pg.wait_for_selector('[data-testid="status-bar"]:not([data-state="investigating"])', timeout=90000)
             # 2) every request stalls -> two attempts -> safe stop
             httpx.post("http://127.0.0.1:9099/control", json={"stall": "all"})
-            pg.get_by_role("button", name="START DEMO").click()
-            pg.wait_for_function("() => document.querySelector('.ready-title')?.innerText.includes('READY')", timeout=120000)
+            pg.locator('[data-testid="start-demo"]').click()
+            pg.wait_for_selector('[data-testid="status-bar"][data-state="ready"]', timeout=120000)
             ask()
-            pg.get_by_text("stopped safely").wait_for(timeout=60000)
+            pg.get_by_text("investigation stopped, nothing changed").wait_for(timeout=60000)
             pg.wait_for_timeout(500)
             pg.screenshot(path=str(shots / "03_timeout_stopped_safely.png"))
             print("final timeout alert visible: YES")

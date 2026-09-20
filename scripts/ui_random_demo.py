@@ -54,26 +54,26 @@ def leak_audit(inv_id: str) -> list[str]:
 def one(pg, n: int) -> dict:
     rec = {"run": n, "stage": "start"}
     try:
-        pg.wait_for_function("() => { const b = [...document.querySelectorAll('button')].find(x => x.innerText === 'START DEMO'); return b && !b.disabled }", timeout=120000)
+        pg.wait_for_selector('[data-testid="start-demo"]:not([disabled])', timeout=120000)
         t0 = time.time()
-        pg.get_by_role("button", name="START DEMO").click()
-        pg.wait_for_function("() => document.querySelector('.ready-title')?.innerText.includes('PREPARING')", timeout=15000)
-        pg.wait_for_function("() => document.querySelector('.ready-title')?.innerText.includes('READY FOR DEMO')", timeout=120000)
+        pg.locator('[data-testid="start-demo"]').click()
+        pg.wait_for_selector('[data-testid="status-bar"][data-state="preparing"]', timeout=15000)
+        pg.wait_for_selector('[data-testid="status-bar"][data-state="ready"]', timeout=120000)
         rec["prepare_s"] = round(time.time() - t0, 1)
 
         rec["stage"] = "inject random"
-        pg.get_by_role("button", name="Random Failure").click()
-        pg.wait_for_function("() => document.querySelector('.ready-title')?.innerText.includes('FAULT DETECTED')", timeout=45000)
+        pg.locator('[data-testid="inject-random"]').click()
+        pg.wait_for_selector('[data-testid="status-bar"][data-state="fault"]', timeout=45000)
         pg.wait_for_timeout(1500)
 
         rec["stage"] = "investigate"
-        pg.get_by_placeholder("Describe the problem").fill(QUERY)
+        pg.locator('[data-testid="query"]').fill(QUERY)
         t_ask = time.time()
-        pg.get_by_role("button", name="Investigate", exact=True).click()
-        pg.wait_for_function("() => document.querySelector('.ready-title')?.innerText.includes('INVESTIGATING')", timeout=15000)
+        pg.locator('[data-testid="run"]').click()
+        pg.wait_for_selector('[data-testid="status-bar"][data-state="investigating"]', timeout=15000)
 
         rec["stage"] = "wait proposal/terminal"
-        approve = pg.get_by_role("button", name="APPROVE", exact=True)
+        approve = pg.locator('[data-testid="approve"]')
         end = time.time() + 120
         while time.time() < end:
             inv = current()
