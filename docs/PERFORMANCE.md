@@ -82,7 +82,7 @@ Shortening the settle time would save ~1.5 s but risks a failed first verificati
 |---|---|
 | median diagnosis < 30 s | **met**: 10.7 s hero path through the UI (10 runs); 11.0 s over 15 random faults (UI); 4.7 s over the 15-run benchmark |
 | stretch < 15 s | **met on the measured paths** (hero max 11.0 s; benchmark max 9.1 s; random batch max 16.0 s, i.e. 1 of 15 above 15 s, measured before the last trims) |
-| no cold-start latency in a demo | `run_demo.sh` cold-to-READY in 42 s; the model is warm before START DEMO is enabled |
+| no cold-start latency in a demo | `run_demo.sh` cold-to-READY in 42 s; the query box and fault controls stay locked until the model is warm; if it has gone cold (Ollama unloads after 60 min idle), Start demo warms it (about 8 s) |
 
 ## 5. What limits it now, honestly
 

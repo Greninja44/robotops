@@ -1,0 +1,333 @@
+{
+  "started": "2026-09-20 09:07:27",
+  "query": "Robot stopped moving. Diagnose it.",
+  "runs": [
+    {
+      "run": 1,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 9.1,
+      "fault_visible_s": 1.9,
+      "to_proposal_s": 11.5,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 17.8,
+      "incident": {
+        "Root cause": "base_controller",
+        "Diagnosis": "10.9 s",
+        "Tool calls": "5",
+        "Repair": "restart_component",
+        "Recovery": "5.1 s",
+        "Total": "17.5 s \u00b7 incl. 1.5 s awaiting approval"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 6,
+      "tool_calls": 5,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 10.9,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "inspect_node",
+        "inspect_topic",
+        "inspect_node"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 2,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 10.0,
+      "fault_visible_s": 1.8,
+      "to_proposal_s": 14.0,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 19.5,
+      "incident": {
+        "Root cause": "base_controller",
+        "Diagnosis": "13.6 s",
+        "Tool calls": "5",
+        "Repair": "restart_component",
+        "Recovery": "5.1 s",
+        "Total": "19.1 s \u00b7 incl. 0.5 s awaiting approval"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 6,
+      "tool_calls": 5,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 13.6,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "inspect_node",
+        "measure_topic_rate",
+        "inspect_node"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 3,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 9.1,
+      "fault_visible_s": 2.4,
+      "to_proposal_s": 4.4,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 9.8,
+      "incident": {
+        "Root cause": "base_controller",
+        "Diagnosis": "3.9 s",
+        "Tool calls": "3",
+        "Repair": "restart_component",
+        "Recovery": "5.1 s",
+        "Total": "9.5 s \u00b7 incl. 0.5 s awaiting approval"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 3,
+      "tool_calls": 3,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 3.9,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "list_nodes",
+        "list_topics"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 4,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 9.5,
+      "fault_visible_s": 0.8,
+      "to_proposal_s": 12.0,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 17.4,
+      "incident": {
+        "Root cause": "base_controller",
+        "Diagnosis": "11.6 s",
+        "Tool calls": "4",
+        "Repair": "restart_component",
+        "Recovery": "5.1 s",
+        "Total": "17.1 s \u00b7 incl. 0.4 s awaiting approval"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 5,
+      "tool_calls": 4,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 11.6,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "get_recent_diagnostics",
+        "get_component_status"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 5,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 9.5,
+      "fault_visible_s": 1.3,
+      "to_proposal_s": 12.5,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 17.9,
+      "incident": {
+        "Root cause": "base_controller",
+        "Diagnosis": "12.0 s",
+        "Tool calls": "5",
+        "Repair": "restart_component",
+        "Recovery": "5.1 s",
+        "Total": "17.6 s \u00b7 incl. 0.5 s awaiting approval"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 6,
+      "tool_calls": 5,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 12.0,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "inspect_node",
+        "inspect_topic",
+        "inspect_node"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 6,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 9.5,
+      "fault_visible_s": 1.8,
+      "to_proposal_s": 12.0,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 17.4,
+      "incident": {
+        "Root cause": "base_controller",
+        "Diagnosis": "11.8 s",
+        "Tool calls": "5",
+        "Repair": "restart_component",
+        "Recovery": "5.0 s",
+        "Total": "17.1 s \u00b7 incl. 0.3 s awaiting approval"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 6,
+      "tool_calls": 5,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 11.8,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "inspect_node",
+        "inspect_topic",
+        "inspect_node"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 7,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 8.9,
+      "fault_visible_s": 1.8,
+      "to_proposal_s": 11.5,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 16.9,
+      "incident": {
+        "Root cause": "base_controller",
+        "Diagnosis": "11.0 s",
+        "Tool calls": "5",
+        "Repair": "restart_component",
+        "Recovery": "5.1 s",
+        "Total": "16.5 s \u00b7 incl. 0.5 s awaiting approval"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 6,
+      "tool_calls": 5,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 11.0,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "inspect_node",
+        "inspect_topic",
+        "inspect_node"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 8,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 9.0,
+      "fault_visible_s": 1.8,
+      "to_proposal_s": 11.0,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 16.3,
+      "incident": {
+        "Root cause": "base_controller",
+        "Diagnosis": "10.6 s",
+        "Tool calls": "5",
+        "Repair": "restart_component",
+        "Recovery": "5.1 s",
+        "Total": "16.0 s \u00b7 incl. 0.4 s awaiting approval"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 6,
+      "tool_calls": 5,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 10.6,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "inspect_node",
+        "inspect_topic",
+        "inspect_node"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 9,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 9.5,
+      "fault_visible_s": 2.4,
+      "to_proposal_s": 10.4,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 15.8,
+      "incident": {
+        "Root cause": "base_controller",
+        "Diagnosis": "10.3 s",
+        "Tool calls": "5",
+        "Repair": "restart_component",
+        "Recovery": "5.0 s",
+        "Total": "15.5 s \u00b7 incl. 0.1 s awaiting approval"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 6,
+      "tool_calls": 5,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 10.3,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "inspect_node",
+        "inspect_topic",
+        "inspect_node"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 10,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 9.0,
+      "fault_visible_s": 1.8,
+      "to_proposal_s": 11.0,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 16.4,
+      "incident": {
+        "Root cause": "base_controller",
+        "Diagnosis": "10.8 s",
+        "Tool calls": "5",
+        "Repair": "restart_component",
+        "Recovery": "5.1 s",
+        "Total": "16.0 s \u00b7 incl. 0.1 s awaiting approval"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 6,
+      "tool_calls": 5,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 10.8,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "inspect_node",
+        "inspect_topic",
+        "inspect_node"
+      ],
+      "timeouts": 0
+    }
+  ]
+}

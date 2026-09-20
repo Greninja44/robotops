@@ -15,8 +15,8 @@ diagnosing and repairing a real (simulated) ROS 2 failure. **Do not present the 
   a busy machine makes the recording slower and less representative.
 * Browser: Chrome/Edge, **100 % zoom, window 1600x1000** (or full-screen 1920x1080), dark mode on, hide bookmarks bar.
   Open `http://127.0.0.1:8000`.
-* The dashboard must show **READY FOR DEMO** and five green chips (ROS, Agent, Ollama, Model WARM, DDS).
-* Do a rehearsal run first so the model and caches are warm, then press **START DEMO** again to get a clean slate.
+* The status bar must read **Ready** with green ROS / Agent / Ollama / Model warm / DDS indicators.
+* Do a rehearsal run first so the model and caches are warm, then press **Start demo** (Demo controls) again to get a clean slate.
 
 ## Recording tool
 
@@ -27,12 +27,12 @@ window) or **OBS Studio** (Window Capture -> browser, 1080p30, MP4). Record audi
 
 | # | Do | What the viewer should see |
 |---|---|---|
-| 1 | Start recording. Show the dashboard for 3 s | `READY FOR DEMO`, all components HEALTHY, live graph animating |
-| 2 | Click **Controller Failure** | health bar turns red, banner `FAULT DETECTED`, `base_controller` NOT RUNNING in the graph, red AFFECTED region |
-| 3 | Type **Robot stopped moving. Diagnose it.** and press Investigate | numbered timeline fills in step by step with real values (e.g. `/cmd_vel 10.0 Hz`, missing nodes) |
-| 4 | Wait for the proposal (about 10-20 s) | `Root cause identified`, evidence list, `restart_component -> base_controller`, risk, **APPROVE / REJECT** |
-| 5 | Pause 2 s (let viewers read), click **APPROVE** | `Repair approved`, verification checks running |
-| 6 | Hold on the result for 5 s | `RECOVERY VERIFIED`, health HEALTHY, **INCIDENT RESOLVED** card with measured times |
+| 1 | Start recording. Show the console for 3 s | status bar `Ready`, all components healthy, the ROS graph |
+| 2 | Demo controls -> **Controller crash** | System shows Controller *failed*, the graph marks `base_controller` unavailable, status bar `Fault detected` |
+| 3 | Type **Robot stopped moving. Diagnose it.** and press **Run** | the Investigation stream fills in with timestamped tool calls and real values (e.g. `/cmd_vel  1 publisher · 0 subscribers`) |
+| 4 | Wait for the proposal (about 10-20 s) | **Root cause** with evidence, **Proposed action** `restart_component /base_controller`, risk, **Reject / Approve restart**; status bar `Awaiting approval` |
+| 5 | Pause 2 s (let viewers read), click **Approve restart** | `approved`, `repair` entries, status bar `Verifying recovery` |
+| 6 | Hold on the result for 5 s | **Verification** checks, `24 / 24 checks passed`, `Recovery verified · 5 s`, status bar `Recovery verified`, System all healthy |
 | 7 | Stop recording | |
 
 Tips: move the mouse slowly, do not scroll during the run, keep the query exactly as above (the scenario is the most-tested path).
