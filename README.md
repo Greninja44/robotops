@@ -16,6 +16,8 @@ Robot stops  →  RobotOps investigates ROS  →  Controller failure identified 
 
 [The problem](#the-problem) · [What it does](#what-robotops-does) · [Why AI?](#why-ai) · [Architecture](#architecture) · [Safety](#safety-model) · [Results](#results) · [Quick start](#quick-start) · [Limitations](#limitations)
 
+Reviewing this repository? The [submission audit](docs/SUBMISSION_AUDIT.md) answers the usual questions (problem, where AI is used, safety, evidence, how to run) with links.
+
 ## The problem
 
 When a ROS 2 robot stops working, an engineer starts a manual investigation across a distributed system:
