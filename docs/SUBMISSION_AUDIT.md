@@ -7,7 +7,7 @@ the judges' questions on its own. This page lists the questions, where the answe
 
 | Question | Answer | Where |
 |---|---|---|
-| What problem does it solve? | Diagnosing a failing ROS 2 robot is a manual, sequential investigation across nodes, topics, TF, diagnostics, logs and controllers. | README → [The problem](../README.md#the-problem) |
+| What problem does it solve? | Diagnosing a failing ROS 2 robot is a manual, sequential investigation across nodes, topics, TF, diagnostics, logs and controllers. | README → [Problem statement](../README.md#problem-statement), [Solution](../README.md#solution) |
 | What does it do? | Investigates a failure in a live ROS 2 system, gathers evidence, names a likely root cause, proposes a guarded repair, and independently verifies recovery. | README top; [What RobotOps does](../README.md#what-robotops-does) |
 | Where is AI essential? | A local LLM (`qwen3:4b`) chooses the next diagnostic tool, decides what to inspect next, forms the hypothesis and writes the diagnosis. There is no fault-to-tool table: tool sequences differ by evidence. | [Why AI?](../README.md#why-ai) |
 | Does it touch a real ROS 2 system? | Yes: `rclpy` tools against a running 6-node demo robot with real DDS traffic; faults are real process failures injected by a supervisor. | [Architecture](../README.md#architecture), `backend/ros_tools/`, `demo_robot/` |
