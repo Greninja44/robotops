@@ -1,0 +1,73 @@
+{
+  "started": "2026-09-20 05:58:37",
+  "query": "Robot stopped moving. Diagnose it.",
+  "runs": [
+    {
+      "run": 1,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 9.0,
+      "fault_visible_s": 1.6,
+      "to_proposal_s": 11.0,
+      "approve_to_resolved_s": 5.5,
+      "ask_to_resolved_s": 16.6,
+      "incident": {
+        "ROOT CAUSE": "base_controller",
+        "DIAGNOSIS": "10.9 s",
+        "TOOLS USED": "4",
+        "REPAIR": "restart_component",
+        "VERIFICATION": "24/24 checks",
+        "APPROVE \u2192 VERIFIED": "5.1 s",
+        "TOTAL RECOVERY": "16.1 s"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 5,
+      "tool_calls": 4,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 10.9,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "get_recent_diagnostics",
+        "get_component_status"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 2,
+      "ok": false,
+      "stage": "check healthy",
+      "prepare_s": 8.9,
+      "fault_visible_s": 1.0,
+      "to_proposal_s": 10.6,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 16.0,
+      "incident": {
+        "ROOT CAUSE": "base_controller",
+        "DIAGNOSIS": "10.4 s",
+        "TOOLS USED": "4",
+        "REPAIR": "restart_component",
+        "VERIFICATION": "24/24 checks",
+        "APPROVE \u2192 VERIFIED": "5.1 s",
+        "TOTAL RECOVERY": "15.6 s"
+      },
+      "health_after": "FAILED",
+      "phase": "resolved",
+      "model_calls": 5,
+      "tool_calls": 4,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 10.4,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "get_recent_diagnostics",
+        "get_component_status"
+      ],
+      "timeouts": 0,
+      "error": "phase=resolved health=FAILED diagnosis=base_controller"
+    }
+  ]
+}

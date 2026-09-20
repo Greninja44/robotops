@@ -63,6 +63,7 @@ class State:
         self.current: Investigation | None = None
         self.last_health: dict | None = None
         self.last_graph: dict | None = None
+        self.last_health_at: float = 0.0
         self.ros_error: str | None = None
         self.readiness: dict | None = None
         self.preparing: str | None = "starting"      # human-readable step while START DEMO preparation runs
@@ -72,14 +73,26 @@ S = State()
 
 
 async def _poll_loop():
-    """Refresh health + graph for the dashboard every 1.5 s."""
+    """Refresh health + graph for the dashboard every 1.5 s. Health transitions and slow cycles are logged
+    (logs/backend.log) so an unexpected red card can be explained after the fact."""
+    prev: dict[str, str] = {}
     while True:
+        t0 = time.monotonic()
         try:
             S.last_health = await asyncio.to_thread(S.monitor.health)
             S.last_graph = await asyncio.to_thread(S.monitor.graph)
+            S.last_health_at = time.time()
             S.hub.publish({"type": "system", "health": S.last_health, "graph": S.last_graph, "ts": time.time()})
+            cur = {k: v["state"] for k, v in (S.last_health.get("components") or {}).items()}
+            if cur != prev and prev:
+                changes = {k: f"{prev.get(k)}->{v}: {S.last_health['components'][k]['detail']}" for k, v in cur.items() if prev.get(k) != v}
+                print(f"[health {time.strftime('%H:%M:%S')}] overall={S.last_health['overall']} " + "; ".join(f"{k} {c}" for k, c in changes.items()), flush=True)
+            prev = cur
         except Exception as e:  # noqa: BLE001
             S.hub.publish({"type": "system_error", "error": str(e)})
+        took = time.monotonic() - t0
+        if took > 2.5:
+            print(f"[health {time.strftime('%H:%M:%S')}] slow poll cycle: {took:.1f}s", flush=True)
         await asyncio.sleep(1.5)
 
 

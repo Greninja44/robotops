@@ -48,9 +48,16 @@ class Monitor:
         with self._lock:
             self._odom.append((now, m.pose.pose.position.x, m.pose.pose.position.y))
 
-    def rate(self, topic: str, window: float = 2.0) -> float:
+    def rate(self, topic: str, window: float = 2.0, max_age: float = 0.7) -> float:
+        """Message rate in Hz from the messages actually received in the last `window` seconds (n-1 intervals over the span they
+        cover), 0 if the newest one is older than `max_age`. Unlike count/window this recovers as soon as a restarted publisher
+        is heard again, so the dashboard does not lag behind the independent verification."""
         now = time.monotonic()
-        return sum(1 for t in list(self._arrivals.get(topic, ())) if now - t <= window) / window
+        times = [t for t in list(self._arrivals.get(topic, ())) if now - t <= window]
+        if len(times) < 3 or now - times[-1] > max_age:
+            return 0.0
+        span = times[-1] - times[0]
+        return (len(times) - 1) / span if span > 0 else 0.0
 
     def odom_moved(self, window: float = 2.0) -> float | None:
         now = time.monotonic()
