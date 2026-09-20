@@ -4,7 +4,8 @@
 - Full loop on the real ROS 2 system: inject -> real failure -> LLM-chosen read-only tools -> evidence-validated diagnosis -> human approval ->
   allowlisted restart -> independent 24-check verification -> HEALTHY.
 - **Latency**: warm diagnosis 92.0 s -> 4-11 s (profile in `docs/PERFORMANCE.md`; cause was ~3,000 tokens of model prose per diagnosis).
-- **Hero scenario through the real dashboard**: 10/10 consecutive runs, diagnosis median 10.7 s, ask -> recovered median 16.3 s (`benchmarks/hero/`).
+- **Hero scenario through the real dashboard**: final acceptance on merged `main` after a cold `run_demo.sh` (model force-unloaded first): **10/10 consecutive runs**, 24/24 verification each,
+  0 timeouts, diagnosis median 10.6 s (7.5-11.3), ask -> recovered median 16.4 s (max 17.1) (`benchmarks/hero/hero_acceptance_20260920_0636.json`). Earlier: 10/10, then a 20/20 soak and 5/5 after the last fixes (`benchmarks/hero/`).
 - **Random faults through the real dashboard**: 15/15 correct, repaired and verified, 0 inconclusive, 0 timeouts, fault identity audited absent from all
   recorded model inputs (`benchmarks/random/`).
 - **Benchmark** (15 runs, 5 faults x 3): 100 % accuracy / repair / verification, median 4.7 s, p95 9.1 s (`benchmarks/results_20260920_052452.*`).
