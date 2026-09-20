@@ -11,7 +11,7 @@
 - Readiness: `./run_demo.sh` (cold -> READY in ~42 s, blocking model warm-up), `./demo_preflight.sh` (DEMO READY / NOT READY, exit code), dashboard READY FOR DEMO
   banner + chips + START DEMO gate; MODEL RESPONSE TIMEOUT / retry shown in the timeline.
 - Dashboard: numbered stage timeline with live values, incident summary card (measured values only), affected-region highlight, RECOVERY VERIFIED badge.
-- Tests: 123 fast (`pytest -m "not ros"`), 19 live-ROS (`-m ros`, all passing on the final code, 3 min 54 s). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
+- Tests: 124 fast (`pytest -m "not ros"`), 19 live-ROS (`-m ros`, all passing on the final code, 3 min 54 s). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
 
 ## RELIABILITY INCIDENTS FOUND BY SOAK TESTING (all with evidence in the repo)
 - **ROS client executor crash** (found 06:21): the backend's rclpy executor died with `cannot use Destroyable because destruction was requested`
