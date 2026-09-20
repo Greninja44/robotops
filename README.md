@@ -14,15 +14,32 @@ Robot stops  →  RobotOps investigates ROS  →  Controller failure identified 
              →  Repair approved  →  Controller restarted  →  24/24 recovery checks pass
 ```
 
-[The problem](#the-problem) · [What it does](#what-robotops-does) · [Why AI?](#why-ai) · [Architecture](#architecture) · [Safety](#safety-model) · [Results](#results) · [Quick start](#quick-start) · [Limitations](#limitations)
+[Problem statement](#problem-statement) · [Solution](#solution) · [What it does](#what-robotops-does) · [Why AI?](#why-ai) · [Architecture](#architecture) · [Safety](#safety-model) · [Results](#results) · [Quick start](#quick-start) · [Limitations](#limitations)
 
-## The problem
+| | |
+|---|---|
+| **Team** | Bluey |
+| **Member** | Adarsh D |
+| **Hackathon** | _add hackathon name here_ |
+
+Reviewing this repository? The [submission audit](docs/SUBMISSION_AUDIT.md) answers the usual questions (problem, where AI is used, safety, evidence, how to run) with links.
+
+## Problem statement
+
+**Diagnosing a failed ROS 2 robot is slow, manual and expert-only, and the repair is only trusted once someone has checked that the robot really recovered.**
 
 When a ROS 2 robot stops working, an engineer starts a manual investigation across a distributed system:
 
 `ros2 node list` (is every node up?) → `ros2 topic list` / `ros2 topic info /cmd_vel` (does anything subscribe?) → `ros2 topic hz /wheel_states` (is data flowing?) → TF (is the `base_link → laser` transform fresh?) → `/diagnostics` and node logs (what did each component report?) → the controller's state (did it crash, and why?).
 
 Each step depends on what the last one showed, the symptoms are far from the cause (a dead controller shows up as "the robot doesn't move" and "odometry is frozen"), and it is repeated for every incident.
+
+## Solution
+
+**RobotOps is an AI reliability engineer that runs that investigation for you, on the live system, and keeps a human in control of the fix.**
+A local LLM decides which read-only ROS check to run next; code turns every result into numbered evidence and rejects any diagnosis that is not backed by it;
+a person approves the one allowlisted repair (`restart_component`); and RobotOps then re-measures the whole robot (24 checks) before it reports recovery.
+In the demo, a crashed controller is found, explained with cited evidence, restarted and verified in about 16 s from the question to recovery (median of 10 runs).
 
 ## What RobotOps does
 

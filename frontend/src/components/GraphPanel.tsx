@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useRef } from 'react'
 import {
-  ReactFlow, ReactFlowProvider, Background, Handle, Position, MarkerType, useReactFlow,
+  ReactFlow, ReactFlowProvider, Background, Handle, Position, MarkerType, useReactFlow, useUpdateNodeInternals,
   type Node, type Edge, type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
@@ -74,8 +74,15 @@ export function GraphPanel({ graph, marks }: { graph: Graph | null; marks: Marks
 /** Keeps the whole graph in view: refits when the set of nodes changes and whenever the panel is resized. */
 function Canvas({ nodes, edges }: { nodes: Node<RosData>[]; edges: Edge[] }) {
   const { fitView } = useReactFlow()
+  const updateNodeInternals = useUpdateNodeInternals()
   const wrap = useRef<HTMLDivElement>(null)
   const signature = nodes.map((n) => n.id).join('|')
+  // The nodes are rebuilt whenever a mark changes (e.g. when a diagnosis cites evidence). React Flow then loses the measured
+  // handle positions and silently stops drawing every edge until they are measured again, so ask for a re-measure.
+  useEffect(() => {
+    const id = requestAnimationFrame(() => updateNodeInternals(nodes.map((n) => n.id)))
+    return () => cancelAnimationFrame(id)
+  }, [nodes, updateNodeInternals])
   useEffect(() => {
     const id = requestAnimationFrame(() => fitView({ padding: 0.06, minZoom: 0.4, maxZoom: 1.25 }))
     return () => cancelAnimationFrame(id)
