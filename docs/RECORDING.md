@@ -1,53 +1,51 @@
-# Recording backup footage (a REAL run, not a mock-up)
+# Recording a real run (demo GIF / video)
 
-Purpose: if the venue network, GPU or laptop misbehaves, you still have genuine footage of RobotOps
-diagnosing and repairing a real (simulated) ROS 2 failure. **Do not present the recording as a live demo** - say
-"this is a recording of a real run from <date>".
+The GIF and MP4 in [`docs/media/`](media) are recordings of a **real run** of the dashboard against the live ROS 2 demo robot: no frames are composited,
+edited or mocked up. This page explains how they were made so they can be reproduced or replaced.
 
-## Before recording (2 minutes)
+## Automated capture (what produced `docs/media/`)
 
 ```bash
-./run_demo.sh            # waits until the model is warm and everything is verified
-./demo_preflight.sh      # must print  ROBOTOPS DEMO READY
+./run_demo.sh                                   # wait for: ROBOTOPS DEMO READY   (close heavy jobs first; ./demo_preflight.sh warns about load)
+.venv/bin/python scripts/ui_hero_demo.py --video docs/media/hero-demo.webm
 ```
 
-* Close anything heavy (other training/eval jobs, browsers with many tabs). The preflight warns about competing load;
-  a busy machine makes the recording slower and less representative.
-* Browser: Chrome/Edge, **100 % zoom, window 1600x1000** (or full-screen 1920x1080), dark mode on, hide bookmarks bar.
-  Open `http://127.0.0.1:8000`.
-* The status bar must read **Ready** with green ROS / Agent / Ollama / Model warm / DDS indicators.
-* Do a rehearsal run first so the model and caches are warm, then press **Start demo** (Demo controls) again to get a clean slate.
+`--video` prepares the system (the same call as the **Start demo** button), then drives the real dashboard in headless Chromium at 1440x900 through the hero
+sequence: inject **Controller crash** → type *Robot stopped moving. Diagnose it.* → **Run** → wait for the proposal → **Approve restart** → wait for **Recovery verified**.
+It adds short scripted reading pauses at the key states (about 2.5 s ready, 2 s after the fault, 4.5 s at the approval, 6 s at the end) and records exactly one run
+(about 30 s). The result of the run (ok / diagnosis time / total time) is printed; if it is not `ok=True`, discard the take.
 
-## Recording tool
+Convert to a GIF and an MP4 (ffmpeg):
 
-Any screen recorder works. Suggested (Windows host, WSL2 backend): **Xbox Game Bar** (`Win+G`, then record; capture the browser
-window) or **OBS Studio** (Window Capture -> browser, 1080p30, MP4). Record audio only if you narrate live.
+```bash
+ffmpeg -i docs/media/hero-demo.webm \
+  -vf "fps=6,scale=960:-1:flags=lanczos,split[s0][s1];[s0]palettegen=max_colors=96:stats_mode=diff[p];[s1][p]paletteuse=dither=bayer:bayer_scale=4:diff_mode=rectangle" \
+  docs/media/hero-demo.gif
+ffmpeg -i docs/media/hero-demo.webm -c:v libx264 -crf 28 -pix_fmt yuv420p -movflags +faststart docs/media/hero-demo.mp4
+```
 
-## The take (about 60-75 seconds of footage)
+The committed GIF is 960 px wide at 6 fps with 96 colours (about 4.8 MB); the MP4 (about 0.7 MB) is the higher-quality copy. Raw `.webm` files are git-ignored.
 
-| # | Do | What the viewer should see |
-|---|---|---|
-| 1 | Start recording. Show the console for 3 s | status bar `Ready`, all components healthy, the ROS graph |
-| 2 | Demo controls -> **Controller crash** | System shows Controller *failed*, the graph marks `base_controller` unavailable, status bar `Fault detected` |
-| 3 | Type **Robot stopped moving. Diagnose it.** and press **Run** | the Investigation stream fills in with timestamped tool calls and real values (e.g. `/cmd_vel  1 publisher · 0 subscribers`) |
-| 4 | Wait for the proposal (about 10-20 s) | **Root cause** with evidence, **Proposed action** `restart_component /base_controller`, risk, **Reject / Approve restart**; status bar `Awaiting approval` |
-| 5 | Pause 2 s (let viewers read), click **Approve restart** | `approved`, `repair` entries, status bar `Verifying recovery` |
-| 6 | Hold on the result for 5 s | **Verification** checks, `24 / 24 checks passed`, `Recovery verified · 5 s`, status bar `Recovery verified`, System all healthy |
-| 7 | Stop recording | |
+## Manual capture (screen recorder)
 
-Tips: move the mouse slowly, do not scroll during the run, keep the query exactly as above (the scenario is the most-tested path).
+Any recorder works (OBS Studio, Xbox Game Bar on the Windows host of a WSL2 setup, `peek`, ...).
 
-## After recording
+1. `./run_demo.sh` and `./demo_preflight.sh` must print `ROBOTOPS DEMO READY`. Close anything heavy: a busy machine makes the recording slower and less representative.
+2. Browser at 100 % zoom, window about 1440x900, dark mode, no bookmarks bar; open <http://127.0.0.1:8000>. The status bar must read **Ready** with green ROS / Agent / Ollama / Model / DDS indicators.
+3. Do one rehearsal so the model and caches are warm, then press **Start demo** again for a clean slate and start recording.
+4. Follow the steps in [Reproduce the demo](../README.md#reproduce-the-demo). Move the mouse slowly, do not scroll, keep the query exactly as written.
+5. Stop recording after **Recovery verified** has been visible for a few seconds.
 
-1. Watch it once. If the take has a visible glitch (timeout banner, inconclusive result, wrong component), delete it and record again -
-   the point is a *representative real run*, so re-recording after a failure is fine, but keep the failed take's numbers in mind
-   when you quote reliability (see `benchmarks/hero/` and `benchmarks/random/` for the measured rates).
-2. Save the run's evidence next to the video: `logs/investigations/<id>.json` (full event stream) and the matching lines of `logs/audit.jsonl`.
-   The investigation id is shown by `curl -s localhost:8000/api/investigations/current | python3 -m json.tool | head`.
-3. Name the file `robotops_real_run_<YYYY-MM-DD>.mp4`. Keep a copy off the laptop (USB stick / cloud).
-4. On stage, keep the recording ready in a second window, but start with the live demo. If something fails, say so, and switch.
+If a take shows a glitch (timeout banner, inconclusive result, wrong component), keep the failed take's numbers in mind when quoting reliability and re-record;
+see `benchmarks/hero/` and `benchmarks/random/` for the measured rates.
 
-## Automated capture of screenshots (optional)
+## Evidence that belongs with a recording
 
-`scripts/ui_hero_demo.py --runs 1 --shots docs/screenshots/hero` drives the real dashboard through the same sequence and saves
-the key frames (ready, fault, approval, resolved). Useful for slides; it is not a substitute for a screen recording.
+`logs/investigations/<id>.json` holds the full event stream of every investigation (the id is shown by
+`curl -s localhost:8000/api/investigations/current | python3 -m json.tool | head`), and `logs/audit.jsonl` the audit lines.
+[`docs/examples/controller_failure_trace.json`](examples/controller_failure_trace.json) is the record of the run in `docs/media/hero-demo.*`.
+
+## Screenshots
+
+`scripts/ui_hero_demo.py --runs 1 --shots docs/screenshots/hero` saves the key frames (ready, fault, approval, resolved);
+`scripts/ui_states.py` captures every dashboard state including the timeout and inconclusive ones (`docs/screenshots/states/`).

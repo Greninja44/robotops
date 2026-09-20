@@ -6,3 +6,7 @@ demo_robot/state/
 node_modules/
 frontend/dist/
 .pytest_cache/
+.env
+.env.*
+*.webm
+.DS_Store

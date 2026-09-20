@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Verify a running RobotOps demo end-to-end. Prints PASS/FAIL per check and a summary.
-#   ./verify_demo.sh            quick checks (~1 min)
-#   ./verify_demo.sh --full     also run a complete LLM investigation + approved repair + verification (~2-3 min)
-cd "$(dirname "$0")"
+#   ./scripts/verify_demo.sh            quick checks (~1 min)
+#   ./scripts/verify_demo.sh --full     also run a complete LLM investigation + approved repair + verification (~2-3 min)
+cd "$(dirname "$0")/.."
 API="${ROBOTOPS_API:-http://127.0.0.1:8000}"
 FULL=0; [[ "$1" == "--full" ]] && FULL=1
 PASS=0; FAIL=0; FAILED=()

@@ -48,7 +48,7 @@ def test_environment_check_needs_fragmenting_dds_config(monkeypatch, tmp_path):
 
 def test_only_our_own_heavy_processes_are_ever_stopped(monkeypatch):
     killed = []
-    ps = ("  PID COMMAND\n 111 python scripts/profile_diagnosis.py --runs 3\n 222 python -m evaluation.closed_loop --policy x\n"
+    ps = ("  PID COMMAND\n 111 python scripts/profile_diagnosis.py --runs 3\n 222 python -m some_other_job --policy x\n"
           " 333 python benchmarks/run_benchmark.py\n 444 /usr/bin/mysqld\n")
     monkeypatch.setattr(r, "_run", lambda cmd, timeout=4.0: ps)
     monkeypatch.setattr(r.os, "kill", lambda pid, sig: killed.append(pid))
@@ -57,7 +57,7 @@ def test_only_our_own_heavy_processes_are_ever_stopped(monkeypatch):
 
 
 def test_busy_processes_flags_foreign_load_but_marks_ours(monkeypatch):
-    ps = ("  PID %CPU   RSS ARGS\n 10 140.0 2000000 python -m evaluation.closed_loop\n 11 90.0 100000 python run_benchmark.py\n"
+    ps = ("  PID %CPU   RSS ARGS\n 10 140.0 2000000 python -m some_other_job\n 11 90.0 100000 python run_benchmark.py\n"
           " 12 95.0 900000 ollama runner\n 13 5.0 1000 bash\n")
     monkeypatch.setattr(r, "_run", lambda cmd, timeout=4.0: ps)
     procs = r.busy_processes()

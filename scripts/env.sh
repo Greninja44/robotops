@@ -2,7 +2,9 @@
 ROBOTOPS_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 export ROBOTOPS_ROOT
 set +u
-source /opt/ros/lyrical/setup.bash
+# ROS 2 install to use. Defaults to Lyrical (what RobotOps was developed and tested with); override with
+#   ROBOTOPS_ROS_SETUP=/opt/ros/<distro>/setup.bash
+source "${ROBOTOPS_ROS_SETUP:-/opt/ros/lyrical/setup.bash}"
 export ROS_DOMAIN_ID="${ROBOTOPS_DOMAIN_ID:-73}"
 export ROS_AUTOMATIC_DISCOVERY_RANGE=LOCALHOST
 export RMW_IMPLEMENTATION=rmw_cyclonedds_cpp

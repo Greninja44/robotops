@@ -1,0 +1,866 @@
+{
+  "id": "3c9c268e70",
+  "query": "Robot stopped moving. Diagnose it.",
+  "phase": "resolved",
+  "round": 1,
+  "tool_calls": 3,
+  "llm_calls": 3,
+  "diagnosis_seconds": 4.1,
+  "diagnosis": {
+    "status": "diagnosed",
+    "root_cause": "Missing /base_controller node causing no /wheel_states production",
+    "faulty_component": "base_controller",
+    "evidence": [
+      {
+        "id": "E2",
+        "text": "1 expected node(s) missing: /base_controller",
+        "anomaly": true,
+        "subjects": [
+          "/base_controller"
+        ],
+        "source": "get_ros_health",
+        "step": 1,
+        "args": {},
+        "timestamp": 1789896583.9783628
+      },
+      {
+        "id": "E5",
+        "text": "Expected topic /wheel_states has no publishers",
+        "anomaly": true,
+        "subjects": [
+          "/wheel_states"
+        ],
+        "source": "list_topics",
+        "step": 3,
+        "args": {},
+        "timestamp": 1789896586.1745005
+      }
+    ],
+    "confidence": 0.7,
+    "confidence_basis": [
+      "base 0.30",
+      "+0.30: 2 anomaly finding(s) about the faulty component (max 3 count)",
+      "+0.10: corroborated by 2 independent tools (get_ros_health, list_topics)"
+    ],
+    "recommended_action": {
+      "action": "restart_component",
+      "target": "base_controller",
+      "risk": "medium",
+      "requires_approval": true,
+      "reason": "Missing /base_controller node causing no /wheel_states production",
+      "expected_result": "base_controller back in the graph, subscribed to /cmd_vel, /wheel_states flowing, odometry changing"
+    },
+    "uncited_anomalies": [
+      "E3: Diagnostics: 0 ERROR, 1 WARN, 1 STALE, 4 OK (use get_recent_diagnostics for details)",
+      "E4: Expected node /base_controller (base motor controller, consumes velocity commands) is NOT present in the ROS graph"
+    ]
+  },
+  "proposal": {
+    "id": "1cdc905395a0",
+    "action": "restart_component",
+    "target": "base_controller",
+    "risk": "medium",
+    "requires_approval": true,
+    "reason": "Missing /base_controller node causing no /wheel_states production",
+    "expected_result": "base_controller back in the graph, subscribed to /cmd_vel, /wheel_states flowing, odometry changing",
+    "state": "approved",
+    "evidence": [
+      "E2: 1 expected node(s) missing: /base_controller",
+      "E5: Expected topic /wheel_states has no publishers"
+    ],
+    "decided_by": "dashboard operator"
+  },
+  "repair": {
+    "executed": true,
+    "action": "restart_component",
+    "target": "base_controller",
+    "process_manager_response": {
+      "ok": true,
+      "component": "base_controller",
+      "pid": 497873
+    },
+    "duration_ms": 30
+  },
+  "verification": {
+    "verified": true,
+    "attempts": 1,
+    "checks": [
+      {
+        "check": "/velocity_commander running",
+        "passed": true,
+        "detail": "present in ROS graph",
+        "scope": "system"
+      },
+      {
+        "check": "/base_controller running",
+        "passed": true,
+        "detail": "present in ROS graph",
+        "scope": "target"
+      },
+      {
+        "check": "/wheel_odometry running",
+        "passed": true,
+        "detail": "present in ROS graph",
+        "scope": "system"
+      },
+      {
+        "check": "/lidar_driver running",
+        "passed": true,
+        "detail": "present in ROS graph",
+        "scope": "system"
+      },
+      {
+        "check": "/tf_broadcaster running",
+        "passed": true,
+        "detail": "present in ROS graph",
+        "scope": "system"
+      },
+      {
+        "check": "/obstacle_monitor running",
+        "passed": true,
+        "detail": "present in ROS graph",
+        "scope": "system"
+      },
+      {
+        "check": "/cmd_vel publishing",
+        "passed": true,
+        "detail": "10.0 Hz (min 5.0)",
+        "scope": "system"
+      },
+      {
+        "check": "/base_controller subscribed to /cmd_vel",
+        "passed": true,
+        "detail": "subscribed",
+        "scope": "target"
+      },
+      {
+        "check": "/wheel_states publishing",
+        "passed": true,
+        "detail": "20.0 Hz (min 10.0)",
+        "scope": "target"
+      },
+      {
+        "check": "/wheel_odometry subscribed to /wheel_states",
+        "passed": true,
+        "detail": "subscribed",
+        "scope": "system"
+      },
+      {
+        "check": "/odom publishing",
+        "passed": true,
+        "detail": "20.0 Hz (min 10.0)",
+        "scope": "system"
+      },
+      {
+        "check": "/obstacle_monitor subscribed to /odom",
+        "passed": true,
+        "detail": "subscribed",
+        "scope": "system"
+      },
+      {
+        "check": "/scan publishing",
+        "passed": true,
+        "detail": "10.0 Hz (min 5.0)",
+        "scope": "system"
+      },
+      {
+        "check": "/obstacle_monitor subscribed to /scan",
+        "passed": true,
+        "detail": "subscribed",
+        "scope": "system"
+      },
+      {
+        "check": "/obstacle_distance publishing",
+        "passed": true,
+        "detail": "5.0 Hz (min 2.0)",
+        "scope": "system"
+      },
+      {
+        "check": "odometry changing (robot moving)",
+        "passed": true,
+        "detail": "moved 0.48 m in 2 s",
+        "scope": "target"
+      },
+      {
+        "check": "TF odom->base_link fresh",
+        "passed": true,
+        "detail": "25 ms old",
+        "scope": "system"
+      },
+      {
+        "check": "TF base_link->laser fresh",
+        "passed": true,
+        "detail": "21 ms old",
+        "scope": "system"
+      },
+      {
+        "check": "/velocity_commander diagnostics OK",
+        "passed": true,
+        "detail": "OK: Publishing patrol velocity commands on /cmd_vel",
+        "scope": "system"
+      },
+      {
+        "check": "/base_controller diagnostics OK",
+        "passed": true,
+        "detail": "OK: Driving wheels from /cmd_vel",
+        "scope": "target"
+      },
+      {
+        "check": "/wheel_odometry diagnostics OK",
+        "passed": true,
+        "detail": "OK: Integrating wheel odometry",
+        "scope": "system"
+      },
+      {
+        "check": "/lidar_driver diagnostics OK",
+        "passed": true,
+        "detail": "OK: Scanning at 10 Hz",
+        "scope": "system"
+      },
+      {
+        "check": "/tf_broadcaster diagnostics OK",
+        "passed": true,
+        "detail": "OK: Broadcasting base_link->laser",
+        "scope": "system"
+      },
+      {
+        "check": "/obstacle_monitor diagnostics OK",
+        "passed": true,
+        "detail": "OK: Obstacle detection active",
+        "scope": "system"
+      }
+    ],
+    "failed": []
+  },
+  "evidence": [
+    {
+      "id": "E1",
+      "text": "ROS graph reachable: 5 nodes, 10 topics",
+      "anomaly": false,
+      "subjects": [],
+      "source": "get_ros_health",
+      "step": 1,
+      "args": {},
+      "timestamp": 1789896583.978337
+    },
+    {
+      "id": "E2",
+      "text": "1 expected node(s) missing: /base_controller",
+      "anomaly": true,
+      "subjects": [
+        "/base_controller"
+      ],
+      "source": "get_ros_health",
+      "step": 1,
+      "args": {},
+      "timestamp": 1789896583.9783628
+    },
+    {
+      "id": "E3",
+      "text": "Diagnostics: 0 ERROR, 1 WARN, 1 STALE, 4 OK (use get_recent_diagnostics for details)",
+      "anomaly": true,
+      "subjects": [],
+      "source": "get_ros_health",
+      "step": 1,
+      "args": {},
+      "timestamp": 1789896583.97837
+    },
+    {
+      "id": "E4",
+      "text": "Expected node /base_controller (base motor controller, consumes velocity commands) is NOT present in the ROS graph",
+      "anomaly": true,
+      "subjects": [
+        "/base_controller"
+      ],
+      "source": "list_nodes",
+      "step": 2,
+      "args": {},
+      "timestamp": 1789896585.2130353
+    },
+    {
+      "id": "E5",
+      "text": "Expected topic /wheel_states has no publishers",
+      "anomaly": true,
+      "subjects": [
+        "/wheel_states"
+      ],
+      "source": "list_topics",
+      "step": 3,
+      "args": {},
+      "timestamp": 1789896586.1745005
+    },
+    {
+      "id": "E6",
+      "text": "8 active topics: /cmd_vel, /diagnostics, /obstacle_distance, /odom, /scan, /tf, /tf_static, /wheel_states",
+      "anomaly": false,
+      "subjects": [],
+      "source": "list_topics",
+      "step": 3,
+      "args": {},
+      "timestamp": 1789896586.1745372
+    }
+  ],
+  "events": [
+    {
+      "seq": 1,
+      "ts": 1789896583.9772203,
+      "kind": "note",
+      "phase": "observing",
+      "text": "Observing: taking a baseline snapshot of the ROS system"
+    },
+    {
+      "seq": 2,
+      "ts": 1789896583.9772367,
+      "kind": "tool_call",
+      "phase": "observing",
+      "step": 1,
+      "tool": "get_ros_health",
+      "args": {},
+      "reason": "baseline observation"
+    },
+    {
+      "seq": 3,
+      "ts": 1789896583.978418,
+      "kind": "tool_result",
+      "phase": "observing",
+      "step": 1,
+      "tool": "get_ros_health",
+      "args": {},
+      "success": true,
+      "error": null,
+      "duration_ms": 0,
+      "data": {
+        "ros_graph_reachable": true,
+        "node_count": 5,
+        "topic_count": 10,
+        "expected_nodes_missing": [
+          "/base_controller"
+        ],
+        "diagnostics_levels": {
+          "OK": 4,
+          "WARN": 1,
+          "ERROR": 0,
+          "STALE": 1
+        }
+      },
+      "evidence": [
+        {
+          "id": "E1",
+          "text": "ROS graph reachable: 5 nodes, 10 topics",
+          "anomaly": false,
+          "subjects": []
+        },
+        {
+          "id": "E2",
+          "text": "1 expected node(s) missing: /base_controller",
+          "anomaly": true,
+          "subjects": [
+            "/base_controller"
+          ]
+        },
+        {
+          "id": "E3",
+          "text": "Diagnostics: 0 ERROR, 1 WARN, 1 STALE, 4 OK (use get_recent_diagnostics for details)",
+          "anomaly": true,
+          "subjects": []
+        }
+      ]
+    },
+    {
+      "seq": 4,
+      "ts": 1789896583.9787877,
+      "kind": "phase",
+      "phase": "investigating",
+      "previous": "observing"
+    },
+    {
+      "seq": 5,
+      "ts": 1789896585.211548,
+      "kind": "llm_call",
+      "phase": "investigating",
+      "n": 1,
+      "tools": [
+        "list_nodes"
+      ],
+      "wall_s": 1.23,
+      "ollama_total_s": 1.21,
+      "load_s": 0.01,
+      "prompt_tokens": 938,
+      "prompt_eval_s": 0.21,
+      "output_tokens": 40,
+      "generation_s": 0.79,
+      "attempts": 1,
+      "tokens_per_s": 50.6
+    },
+    {
+      "seq": 6,
+      "ts": 1789896585.2119722,
+      "kind": "tool_call",
+      "phase": "investigating",
+      "step": 2,
+      "tool": "list_nodes",
+      "args": {},
+      "reason": "Robot stopped moving due to missing /base_controller node"
+    },
+    {
+      "seq": 7,
+      "ts": 1789896585.2131045,
+      "kind": "tool_result",
+      "phase": "investigating",
+      "step": 2,
+      "tool": "list_nodes",
+      "args": {},
+      "success": true,
+      "error": null,
+      "duration_ms": 0,
+      "data": {
+        "nodes": [
+          "/lidar_driver",
+          "/obstacle_monitor",
+          "/tf_broadcaster",
+          "/velocity_commander",
+          "/wheel_odometry"
+        ],
+        "count": 5,
+        "expected_missing": [
+          "/base_controller"
+        ],
+        "unexpected": []
+      },
+      "evidence": [
+        {
+          "id": "E4",
+          "text": "Expected node /base_controller (base motor controller, consumes velocity commands) is NOT present in the ROS graph",
+          "anomaly": true,
+          "subjects": [
+            "/base_controller"
+          ]
+        }
+      ]
+    },
+    {
+      "seq": 8,
+      "ts": 1789896586.171347,
+      "kind": "llm_call",
+      "phase": "investigating",
+      "n": 2,
+      "tools": [
+        "list_topics"
+      ],
+      "wall_s": 0.96,
+      "ollama_total_s": 0.92,
+      "load_s": 0.0,
+      "prompt_tokens": 1153,
+      "prompt_eval_s": 0.11,
+      "output_tokens": 40,
+      "generation_s": 0.79,
+      "attempts": 1,
+      "tokens_per_s": 50.6
+    },
+    {
+      "seq": 9,
+      "ts": 1789896586.1717858,
+      "kind": "tool_call",
+      "phase": "investigating",
+      "step": 3,
+      "tool": "list_topics",
+      "args": {},
+      "reason": "Robot stopped moving due to missing /base_controller node"
+    },
+    {
+      "seq": 10,
+      "ts": 1789896586.1745827,
+      "kind": "tool_result",
+      "phase": "investigating",
+      "step": 3,
+      "tool": "list_topics",
+      "args": {},
+      "success": true,
+      "error": null,
+      "duration_ms": 1,
+      "data": {
+        "topics": {
+          "/cmd_vel": {
+            "type": "geometry_msgs/msg/Twist",
+            "publishers": 1,
+            "subscribers": 0
+          },
+          "/diagnostics": {
+            "type": "diagnostic_msgs/msg/DiagnosticArray",
+            "publishers": 5,
+            "subscribers": 0
+          },
+          "/obstacle_distance": {
+            "type": "std_msgs/msg/Float32",
+            "publishers": 1,
+            "subscribers": 0
+          },
+          "/odom": {
+            "type": "nav_msgs/msg/Odometry",
+            "publishers": 1,
+            "subscribers": 1
+          },
+          "/scan": {
+            "type": "sensor_msgs/msg/LaserScan",
+            "publishers": 1,
+            "subscribers": 1
+          },
+          "/tf": {
+            "type": "tf2_msgs/msg/TFMessage",
+            "publishers": 2,
+            "subscribers": 1
+          },
+          "/tf_static": {
+            "type": "tf2_msgs/msg/TFMessage",
+            "publishers": 0,
+            "subscribers": 1
+          },
+          "/wheel_states": {
+            "type": "sensor_msgs/msg/JointState",
+            "publishers": 0,
+            "subscribers": 1
+          }
+        }
+      },
+      "evidence": [
+        {
+          "id": "E5",
+          "text": "Expected topic /wheel_states has no publishers",
+          "anomaly": true,
+          "subjects": [
+            "/wheel_states"
+          ]
+        },
+        {
+          "id": "E6",
+          "text": "8 active topics: /cmd_vel, /diagnostics, /obstacle_distance, /odom, /scan, /tf, /tf_static, /wheel_states",
+          "anomaly": false,
+          "subjects": []
+        }
+      ]
+    },
+    {
+      "seq": 11,
+      "ts": 1789896588.0370717,
+      "kind": "llm_call",
+      "phase": "investigating",
+      "n": 3,
+      "tools": [
+        "submit_diagnosis"
+      ],
+      "wall_s": 1.86,
+      "ollama_total_s": 1.84,
+      "load_s": 0.01,
+      "prompt_tokens": 1454,
+      "prompt_eval_s": 0.14,
+      "output_tokens": 81,
+      "generation_s": 1.67,
+      "attempts": 1,
+      "tokens_per_s": 48.5
+    },
+    {
+      "seq": 12,
+      "ts": 1789896588.0373783,
+      "kind": "phase",
+      "phase": "diagnosing",
+      "previous": "investigating"
+    },
+    {
+      "seq": 13,
+      "ts": 1789896588.0380325,
+      "kind": "diagnosis",
+      "phase": "diagnosing",
+      "diagnosis": {
+        "status": "diagnosed",
+        "root_cause": "Missing /base_controller node causing no /wheel_states production",
+        "faulty_component": "base_controller",
+        "evidence": [
+          {
+            "id": "E2",
+            "text": "1 expected node(s) missing: /base_controller",
+            "anomaly": true,
+            "subjects": [
+              "/base_controller"
+            ],
+            "source": "get_ros_health",
+            "step": 1,
+            "args": {},
+            "timestamp": 1789896583.9783628
+          },
+          {
+            "id": "E5",
+            "text": "Expected topic /wheel_states has no publishers",
+            "anomaly": true,
+            "subjects": [
+              "/wheel_states"
+            ],
+            "source": "list_topics",
+            "step": 3,
+            "args": {},
+            "timestamp": 1789896586.1745005
+          }
+        ],
+        "confidence": 0.7,
+        "confidence_basis": [
+          "base 0.30",
+          "+0.30: 2 anomaly finding(s) about the faulty component (max 3 count)",
+          "+0.10: corroborated by 2 independent tools (get_ros_health, list_topics)"
+        ],
+        "recommended_action": {
+          "action": "restart_component",
+          "target": "base_controller",
+          "risk": "medium",
+          "requires_approval": true,
+          "reason": "Missing /base_controller node causing no /wheel_states production",
+          "expected_result": "base_controller back in the graph, subscribed to /cmd_vel, /wheel_states flowing, odometry changing"
+        },
+        "uncited_anomalies": [
+          "E3: Diagnostics: 0 ERROR, 1 WARN, 1 STALE, 4 OK (use get_recent_diagnostics for details)",
+          "E4: Expected node /base_controller (base motor controller, consumes velocity commands) is NOT present in the ROS graph"
+        ]
+      }
+    },
+    {
+      "seq": 14,
+      "ts": 1789896588.038278,
+      "kind": "phase",
+      "phase": "awaiting_approval",
+      "previous": "diagnosing",
+      "proposal": {
+        "id": "1cdc905395a0",
+        "action": "restart_component",
+        "target": "base_controller",
+        "risk": "medium",
+        "requires_approval": true,
+        "reason": "Missing /base_controller node causing no /wheel_states production",
+        "expected_result": "base_controller back in the graph, subscribed to /cmd_vel, /wheel_states flowing, odometry changing",
+        "state": "approved",
+        "evidence": [
+          "E2: 1 expected node(s) missing: /base_controller",
+          "E5: Expected topic /wheel_states has no publishers"
+        ],
+        "decided_by": "dashboard operator"
+      }
+    },
+    {
+      "seq": 15,
+      "ts": 1789896593.1543727,
+      "kind": "approval",
+      "phase": "awaiting_approval",
+      "state": "approved",
+      "decided_by": "dashboard operator",
+      "proposal_id": "1cdc905395a0"
+    },
+    {
+      "seq": 16,
+      "ts": 1789896593.156415,
+      "kind": "phase",
+      "phase": "repairing",
+      "previous": "awaiting_approval"
+    },
+    {
+      "seq": 17,
+      "ts": 1789896593.156439,
+      "kind": "repair_started",
+      "phase": "repairing",
+      "action": "restart_component",
+      "target": "base_controller"
+    },
+    {
+      "seq": 18,
+      "ts": 1789896593.1926606,
+      "kind": "repair_result",
+      "phase": "repairing",
+      "executed": true,
+      "action": "restart_component",
+      "target": "base_controller",
+      "process_manager_response": {
+        "ok": true,
+        "component": "base_controller",
+        "pid": 497873
+      },
+      "duration_ms": 30
+    },
+    {
+      "seq": 19,
+      "ts": 1789896593.1929903,
+      "kind": "phase",
+      "phase": "verifying",
+      "previous": "repairing"
+    },
+    {
+      "seq": 20,
+      "ts": 1789896598.2399726,
+      "kind": "verification_attempt",
+      "phase": "verifying",
+      "attempt": 1,
+      "passed": 24,
+      "total": 24,
+      "failed": []
+    },
+    {
+      "seq": 21,
+      "ts": 1789896598.2401345,
+      "kind": "verification",
+      "phase": "verifying",
+      "verified": true,
+      "attempts": 1,
+      "checks": [
+        {
+          "check": "/velocity_commander running",
+          "passed": true,
+          "detail": "present in ROS graph",
+          "scope": "system"
+        },
+        {
+          "check": "/base_controller running",
+          "passed": true,
+          "detail": "present in ROS graph",
+          "scope": "target"
+        },
+        {
+          "check": "/wheel_odometry running",
+          "passed": true,
+          "detail": "present in ROS graph",
+          "scope": "system"
+        },
+        {
+          "check": "/lidar_driver running",
+          "passed": true,
+          "detail": "present in ROS graph",
+          "scope": "system"
+        },
+        {
+          "check": "/tf_broadcaster running",
+          "passed": true,
+          "detail": "present in ROS graph",
+          "scope": "system"
+        },
+        {
+          "check": "/obstacle_monitor running",
+          "passed": true,
+          "detail": "present in ROS graph",
+          "scope": "system"
+        },
+        {
+          "check": "/cmd_vel publishing",
+          "passed": true,
+          "detail": "10.0 Hz (min 5.0)",
+          "scope": "system"
+        },
+        {
+          "check": "/base_controller subscribed to /cmd_vel",
+          "passed": true,
+          "detail": "subscribed",
+          "scope": "target"
+        },
+        {
+          "check": "/wheel_states publishing",
+          "passed": true,
+          "detail": "20.0 Hz (min 10.0)",
+          "scope": "target"
+        },
+        {
+          "check": "/wheel_odometry subscribed to /wheel_states",
+          "passed": true,
+          "detail": "subscribed",
+          "scope": "system"
+        },
+        {
+          "check": "/odom publishing",
+          "passed": true,
+          "detail": "20.0 Hz (min 10.0)",
+          "scope": "system"
+        },
+        {
+          "check": "/obstacle_monitor subscribed to /odom",
+          "passed": true,
+          "detail": "subscribed",
+          "scope": "system"
+        },
+        {
+          "check": "/scan publishing",
+          "passed": true,
+          "detail": "10.0 Hz (min 5.0)",
+          "scope": "system"
+        },
+        {
+          "check": "/obstacle_monitor subscribed to /scan",
+          "passed": true,
+          "detail": "subscribed",
+          "scope": "system"
+        },
+        {
+          "check": "/obstacle_distance publishing",
+          "passed": true,
+          "detail": "5.0 Hz (min 2.0)",
+          "scope": "system"
+        },
+        {
+          "check": "odometry changing (robot moving)",
+          "passed": true,
+          "detail": "moved 0.48 m in 2 s",
+          "scope": "target"
+        },
+        {
+          "check": "TF odom->base_link fresh",
+          "passed": true,
+          "detail": "25 ms old",
+          "scope": "system"
+        },
+        {
+          "check": "TF base_link->laser fresh",
+          "passed": true,
+          "detail": "21 ms old",
+          "scope": "system"
+        },
+        {
+          "check": "/velocity_commander diagnostics OK",
+          "passed": true,
+          "detail": "OK: Publishing patrol velocity commands on /cmd_vel",
+          "scope": "system"
+        },
+        {
+          "check": "/base_controller diagnostics OK",
+          "passed": true,
+          "detail": "OK: Driving wheels from /cmd_vel",
+          "scope": "target"
+        },
+        {
+          "check": "/wheel_odometry diagnostics OK",
+          "passed": true,
+          "detail": "OK: Integrating wheel odometry",
+          "scope": "system"
+        },
+        {
+          "check": "/lidar_driver diagnostics OK",
+          "passed": true,
+          "detail": "OK: Scanning at 10 Hz",
+          "scope": "system"
+        },
+        {
+          "check": "/tf_broadcaster diagnostics OK",
+          "passed": true,
+          "detail": "OK: Broadcasting base_link->laser",
+          "scope": "system"
+        },
+        {
+          "check": "/obstacle_monitor diagnostics OK",
+          "passed": true,
+          "detail": "OK: Obstacle detection active",
+          "scope": "system"
+        }
+      ],
+      "failed": []
+    },
+    {
+      "seq": 22,
+      "ts": 1789896598.2416432,
+      "kind": "phase",
+      "phase": "resolved",
+      "previous": "verifying",
+      "reason": "recovery independently verified"
+    }
+  ],
+  "note": "Real investigation record from a controller-crash run of the RobotOps dashboard (one investigation). Produced by backend/agent; no fields edited."
+}
