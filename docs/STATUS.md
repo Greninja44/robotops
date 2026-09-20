@@ -21,6 +21,10 @@
   My first version of that fix had its own bug (the loop exited because it was tied to a flag set after the thread started, so the client saw the graph but received no data);
   found by a 40-iteration stress test, fixed, and a regression test now reproduces the real start ordering. The race itself did not re-trigger in the stress test, so the
   survival path is covered by unit tests, not a live reproduction.
+- **Graph edges vanished at the proposal stage** (found 09:57 while re-capturing `docs/screenshots/states/`): once the diagnosis marked nodes as involved, the ROS graph lost all its edges
+  (DOM: 12 `.react-flow__edge` before, 0 after; reproduced in 2 of 2 captures; it did not occur in the recorded hero run, so it is timing dependent). Cause: the graph nodes are rebuilt when marks change and
+  React Flow drops the measured handle positions, so it stops drawing edges. Fixed in `GraphPanel.tsx` by asking React Flow to re-measure after each rebuild; with the fix all 12 edges persist through every state
+  (checked in a full state capture) and 2/2 hero runs passed. No automated UI regression test covers this; the check is `scripts/ui_states.py`.
 - **One unexplained failure**: in one hero run the dashboard's health read FAILED right after RECOVERY VERIFIED (24/24 checks, correct diagnosis). It did not reproduce in 24
   further recoveries (20 UI hero runs + 4 API probes). The dashboard health log (`logs/backend.log`, `[health ...]` lines) and the hero harness now record the component details if it
   recurs. Across ~36 UI hero runs on the final code: 35 fully clean, 1 with that anomaly. The monitor's rate estimator was also made more responsive after restarts.
