@@ -43,9 +43,13 @@ function RosNode({ data }: NodeProps<Node<RosData>>) {
   )
 }
 
-const nodeTypes = { ros: RosNode }
+function RegionNode({ data }: NodeProps<Node<{ w: number; h: number }>>) {
+  return <div className="region" style={{ width: data.w, height: data.h }}><span>AFFECTED</span></div>
+}
 
-export function GraphPanel({ graph, marks }: { graph: Graph | null; marks: Marks }) {
+const nodeTypes = { ros: RosNode, region: RegionNode }
+
+export function GraphPanel({ graph, marks, recovered }: { graph: Graph | null; marks: Marks; recovered?: boolean }) {
   const { nodes, edges } = useMemo(() => build(graph, marks), [graph, marks])
   return (
     <section className="panel graph-panel">
@@ -60,6 +64,7 @@ export function GraphPanel({ graph, marks }: { graph: Graph | null; marks: Marks
       </div>
       <div className="graph-canvas">
         {graph && !graph.ros_available && <div className="overlay-msg">ROS graph unavailable</div>}
+        {recovered && <div className="recovered-badge">RECOVERY VERIFIED</div>}
         <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.12 }}
           proOptions={{ hideAttribution: true }} nodesDraggable={false} nodesConnectable={false}
           elementsSelectable={false} zoomOnScroll={false} panOnDrag={false} preventScrolling={false}>
@@ -124,6 +129,15 @@ function build(graph: Graph | null, marks: Marks): { nodes: Node<RosData>[]; edg
     if (!ids.has(e.source) || !ids.has(e.target)) continue
     const topic = e.kind === 'pub' ? e.target : e.source
     edges.push(edge(`${e.source}>${e.target}`, e.source, e.target, e.live, e.live && (topicOk.get(topic) ?? true)))
+  }
+  // Highlight the affected region: bounding box of failed/missing/root-cause/evidence nodes.
+  const bad = nodes.filter((n) => n.data.state === 'missing' || n.data.state === 'bad' || n.data.mark === 'root')
+  if (bad.length) {
+    const W = 175, H = 56
+    const x0 = Math.min(...bad.map((n) => n.position.x)) - 26, y0 = Math.min(...bad.map((n) => n.position.y)) - 34
+    const x1 = Math.max(...bad.map((n) => n.position.x)) + W + 26, y1 = Math.max(...bad.map((n) => n.position.y)) + H + 22
+    nodes.unshift({ id: '__region', type: 'region', position: { x: x0, y: y0 }, zIndex: -1, selectable: false, draggable: false,
+      data: { w: x1 - x0, h: y1 - y0 } } as unknown as Node<RosData>)
   }
   return { nodes, edges }
 }
