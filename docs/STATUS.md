@@ -9,9 +9,9 @@
 - **Random faults through the real dashboard**: 15/15 correct, repaired and verified, 0 inconclusive, 0 timeouts, fault identity audited absent from all
   recorded model inputs (`benchmarks/random/`).
 - **Benchmark** (15 runs, 5 faults x 3): 100 % accuracy / repair / verification, median 4.7 s, p95 9.1 s (`benchmarks/results_20260920_052452.*`).
-- Readiness: `./run_demo.sh` (cold -> READY in ~42 s, blocking model warm-up), `./demo_preflight.sh` (DEMO READY / NOT READY, exit code), dashboard READY FOR DEMO
-  banner + chips + START DEMO gate; MODEL RESPONSE TIMEOUT / retry shown in the timeline.
-- Dashboard: numbered stage timeline with live values, incident summary card (measured values only), affected-region highlight, RECOVERY VERIFIED badge.
+- Readiness: `./run_demo.sh` (cold -> READY in ~42 s, blocking model warm-up), `./demo_preflight.sh` (DEMO READY / NOT READY, exit code), status bar with readiness
+  indicators + Start demo gate (also the recovery action for a cold model / lost discovery); model timeout / retry shown in the event stream.
+- Dashboard (console layout, see `docs/UI_CLEANUP.md`): System | ROS graph | Investigation event stream, status bar, root cause / proposed action / verification with measured summary, query box at the bottom, collapsible Demo controls. No page scroll at 1366x768 or 1440x900.
 - Tests: 124 fast (`pytest -m "not ros"`), 19 live-ROS (`-m ros`, all passing on the final code, 3 min 54 s). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
 
 ## RELIABILITY INCIDENTS FOUND BY SOAK TESTING (all with evidence in the repo)

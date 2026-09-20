@@ -123,13 +123,13 @@ ever executed twice because approvals are single-use).
 
 ## Screenshots
 
-Real captures of the running dashboard (`scripts/ui_hero_demo.py --shots`), one full hero cycle:
+Real captures of the running console (`scripts/ui_hero_demo.py --shots`), one full hero cycle. All nine states (including timeout and inconclusive) are in `docs/screenshots/states/`.
 
-| 1. READY FOR DEMO | 2. Fault injected (controller crash) |
+| 1. Ready | 2. Fault injected (controller crash) |
 |---|---|
 | ![ready](docs/screenshots/hero/01_ready.png) | ![fault](docs/screenshots/hero/02_fault.png) |
 
-| 3. Evidence-backed diagnosis, waiting for approval | 4. Approved, repaired, independently verified |
+| 3. Root cause and proposed action, awaiting approval | 4. Approved, repaired, independently verified |
 |---|---|
 | ![approval](docs/screenshots/hero/03_approval.png) | ![resolved](docs/screenshots/hero/04_resolved.png) |
 
@@ -142,22 +142,24 @@ Real captures of the running dashboard (`scripts/ui_hero_demo.py --shots`), one 
 ./stop_demo.sh
 ```
 
-Open **http://127.0.0.1:8000**. The banner shows **READY FOR DEMO** with ROS / Agent / Ollama / Model WARM / DDS chips only when the
-model is resident and every check passed; the fault and investigate controls stay locked until then. Press **START DEMO** to reset the
-robot to a healthy state and re-verify everything.
+Open **http://127.0.0.1:8000**. The console has three columns: **System** (component health, topics, collapsible *Demo controls*), the **ROS graph**
+(the visual centre) and the **Investigation** event stream, with the query box at the bottom. The status bar under the header always says what is
+happening (Ready, Fault detected, Investigating, Awaiting approval, Verifying recovery, Recovery verified, ...) and shows ROS / Agent / Ollama / Model / DDS
+readiness. Fault injection and the query box stay locked until the model is warm and ROS is reachable; **Start demo** (Demo controls) resets the robot,
+waits for DDS discovery, warms the model and verifies everything - it is also the recovery action if the model has gone cold or discovery was lost.
 
 **3-minute judging sequence**
 
 | time | do | say / show |
 |---|---|---|
-| 0:00 | show the READY FOR DEMO dashboard | "a real ROS 2 robot: 6 nodes, live graph; every value on screen is measured" |
-| 0:20 | click **Controller Failure** | the base controller really crashes; health turns red, graph region lights up |
-| 0:35 | type *Robot stopped moving. Diagnose it.* -> Investigate | the local LLM picks one diagnostic tool at a time; live values appear in the numbered timeline |
-| 0:50 | (~10 s later) point at Root Cause + evidence | "every claim cites evidence IDs from real tool output; the validator, not the model, checks them" |
-| 1:10 | point at Proposed Repair, risk, expected result | "nothing executes without a human" -> click **APPROVE** |
-| 1:20 | watch verification (~5 s) | "it does not trust the exit code: 24 live checks re-measure the whole robot" |
-| 1:30 | **INCIDENT RESOLVED** card | measured diagnosis time, tools used, total recovery |
-| 1:45 | click **Random Failure**, ask *Diagnose the robot.* | "the agent is never told which fault - it discovers it from ROS evidence" |
+| 0:00 | show the console, status bar `Ready` | "a real ROS 2 robot: 6 nodes, live graph; every value on screen is measured" |
+| 0:20 | Demo controls -> **Controller crash** | the base controller really crashes: System shows Controller *failed*, the graph marks it, status bar says *Fault detected* |
+| 0:35 | type *Robot stopped moving. Diagnose it.* -> **Run** | the local LLM picks one diagnostic tool at a time; each entry in the stream shows the tool's real values |
+| 0:50 | (~10 s later) point at **Root cause** and its evidence | "every claim cites evidence IDs from real tool output; the validator, not the model, checks them" |
+| 1:10 | point at **Proposed action**, risk, expected result | "nothing executes without a human" -> click **Approve restart** |
+| 1:20 | watch **Verification** (~5 s) | "it does not trust the exit code: 24 live checks re-measure the whole robot" |
+| 1:30 | status bar *Recovery verified*, verification summary | measured diagnosis time, tool calls, recovery time |
+| 1:45 | **Inject random fault**, ask *Diagnose the robot.* | "the agent is never told which fault - it discovers it from ROS evidence" |
 | 2:30 | show `docs/PERFORMANCE.md` / benchmark numbers | "92 s -> ~11 s after profiling; 15/15 random faults correct" |
 
 Backup: a recording of a real run ([docs/RECORDING.md](docs/RECORDING.md)). Useful extras: `./scripts/reset_demo.sh`,
