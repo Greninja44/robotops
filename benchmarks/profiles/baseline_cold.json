@@ -1,0 +1,82 @@
+{
+  "model": "qwen3:4b",
+  "think": false,
+  "fault": "controller_crash",
+  "cold": true,
+  "runs": [
+    {
+      "phase": "resolved",
+      "diagnosis_s": 73.74,
+      "total_s": 78.82,
+      "approval_to_verified_s": 5.08,
+      "repair_to_verified_s": 5.07,
+      "model_calls": 2,
+      "tool_calls": 2,
+      "diag_model_wall_s": 75.7,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": -1.96,
+      "diag_model_load_s": 7.8,
+      "diag_model_prompt_eval_s": 0.95,
+      "diag_model_generation_s": 65.29,
+      "diag_prompt_tokens": 3813,
+      "diag_output_tokens": 2435,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 0,
+          "started": 0.00024127960205078125
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 31.011112928390503
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 31.66,
+          "load_s": 7.79,
+          "prompt_tokens": 1851,
+          "prompt_eval_s": 0.88,
+          "output_tokens": 856,
+          "generation_s": 22.25,
+          "tokens_per_s": 38.5,
+          "attempts": 1,
+          "t": 31.01086950302124
+        },
+        {
+          "n": 2,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 44.04,
+          "load_s": 0.01,
+          "prompt_tokens": 1962,
+          "prompt_eval_s": 0.07,
+          "output_tokens": 1579,
+          "generation_s": 43.04,
+          "tokens_per_s": 36.7,
+          "attempts": 1,
+          "t": 73.73849964141846
+        }
+      ],
+      "faulty_component": "base_controller"
+    }
+  ],
+  "prompt_anatomy": {
+    "empty_prompt_tokens": 11,
+    "tool_schemas_tokens": 1039,
+    "system_prompt_tokens": 645,
+    "system_prompt_chars": 2692,
+    "user_prompt_tokens_est": 46
+  },
+  "median_diagnosis_s": 73.7
+}

@@ -1,0 +1,612 @@
+{
+  "model": "qwen3:4b",
+  "think": false,
+  "fault": "controller_crash",
+  "cold": false,
+  "runs": [
+    {
+      "phase": "resolved",
+      "diagnosis_s": 13.46,
+      "total_s": 18.56,
+      "approval_to_verified_s": 5.1,
+      "repair_to_verified_s": 5.09,
+      "model_calls": 11,
+      "tool_calls": 2,
+      "diag_model_wall_s": 13.44,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": 0.02,
+      "diag_model_load_s": 0.1,
+      "diag_model_prompt_eval_s": 0.97,
+      "diag_model_generation_s": 11.98,
+      "diag_prompt_tokens": 16275,
+      "diag_output_tokens": 587,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 0,
+          "started": 0.00021576881408691406
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 1.1662859916687012
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.16,
+          "load_s": 0.0,
+          "prompt_tokens": 869,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 50,
+          "generation_s": 1.05,
+          "tokens_per_s": 47.6,
+          "attempts": 1,
+          "t": 1.165848970413208
+        },
+        {
+          "n": 2,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.17,
+          "load_s": 0.01,
+          "prompt_tokens": 1016,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 50,
+          "generation_s": 1.04,
+          "tokens_per_s": 48.1,
+          "attempts": 1,
+          "t": 2.336543321609497
+        },
+        {
+          "n": 3,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.04,
+          "load_s": 0.01,
+          "prompt_tokens": 1132,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 0.93,
+          "tokens_per_s": 53.8,
+          "attempts": 1,
+          "t": 3.3778696060180664
+        },
+        {
+          "n": 4,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.19,
+          "load_s": 0.01,
+          "prompt_tokens": 1248,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 1.07,
+          "tokens_per_s": 46.7,
+          "attempts": 1,
+          "t": 4.566053628921509
+        },
+        {
+          "n": 5,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.12,
+          "load_s": 0.01,
+          "prompt_tokens": 1364,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 0.99,
+          "tokens_per_s": 50.5,
+          "attempts": 1,
+          "t": 5.688824653625488
+        },
+        {
+          "n": 6,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.15,
+          "load_s": 0.01,
+          "prompt_tokens": 1480,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 50,
+          "generation_s": 1.0,
+          "tokens_per_s": 50.0,
+          "attempts": 1,
+          "t": 6.840072154998779
+        },
+        {
+          "n": 7,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.16,
+          "load_s": 0.01,
+          "prompt_tokens": 1596,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 50,
+          "generation_s": 1.03,
+          "tokens_per_s": 48.5,
+          "attempts": 1,
+          "t": 8.001078367233276
+        },
+        {
+          "n": 8,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.18,
+          "load_s": 0.01,
+          "prompt_tokens": 1712,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 50,
+          "generation_s": 1.05,
+          "tokens_per_s": 47.6,
+          "attempts": 1,
+          "t": 9.183470487594604
+        },
+        {
+          "n": 9,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.11,
+          "load_s": 0.01,
+          "prompt_tokens": 1828,
+          "prompt_eval_s": 0.1,
+          "output_tokens": 50,
+          "generation_s": 0.95,
+          "tokens_per_s": 52.6,
+          "attempts": 1,
+          "t": 10.298535108566284
+        },
+        {
+          "n": 10,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.23,
+          "load_s": 0.01,
+          "prompt_tokens": 1944,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 1.09,
+          "tokens_per_s": 45.9,
+          "attempts": 1,
+          "t": 11.527953863143921
+        },
+        {
+          "n": 11,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 1.93,
+          "load_s": 0.01,
+          "prompt_tokens": 2086,
+          "prompt_eval_s": 0.1,
+          "output_tokens": 87,
+          "generation_s": 1.78,
+          "tokens_per_s": 48.9,
+          "attempts": 1,
+          "t": 13.4614098072052
+        }
+      ],
+      "faulty_component": "base_controller"
+    },
+    {
+      "phase": "resolved",
+      "diagnosis_s": 13.96,
+      "total_s": 19.0,
+      "approval_to_verified_s": 5.04,
+      "repair_to_verified_s": 5.02,
+      "model_calls": 11,
+      "tool_calls": 2,
+      "diag_model_wall_s": 13.95,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": 0.01,
+      "diag_model_load_s": 0.11,
+      "diag_model_prompt_eval_s": 0.96,
+      "diag_model_generation_s": 12.11,
+      "diag_prompt_tokens": 16275,
+      "diag_output_tokens": 587,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 0,
+          "started": 0.00030112266540527344
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 1.2966196537017822
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.29,
+          "load_s": 0.01,
+          "prompt_tokens": 869,
+          "prompt_eval_s": 0.06,
+          "output_tokens": 50,
+          "generation_s": 0.97,
+          "tokens_per_s": 51.5,
+          "attempts": 1,
+          "t": 1.296302318572998
+        },
+        {
+          "n": 2,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.21,
+          "load_s": 0.01,
+          "prompt_tokens": 1016,
+          "prompt_eval_s": 0.11,
+          "output_tokens": 50,
+          "generation_s": 1.06,
+          "tokens_per_s": 47.2,
+          "attempts": 1,
+          "t": 2.505211114883423
+        },
+        {
+          "n": 3,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.11,
+          "load_s": 0.01,
+          "prompt_tokens": 1132,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 0.99,
+          "tokens_per_s": 50.5,
+          "attempts": 1,
+          "t": 3.6195778846740723
+        },
+        {
+          "n": 4,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.17,
+          "load_s": 0.02,
+          "prompt_tokens": 1248,
+          "prompt_eval_s": 0.11,
+          "output_tokens": 50,
+          "generation_s": 0.98,
+          "tokens_per_s": 51.0,
+          "attempts": 1,
+          "t": 4.789186954498291
+        },
+        {
+          "n": 5,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.17,
+          "load_s": 0.0,
+          "prompt_tokens": 1364,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 1.02,
+          "tokens_per_s": 49.0,
+          "attempts": 1,
+          "t": 5.96026873588562
+        },
+        {
+          "n": 6,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.06,
+          "load_s": 0.01,
+          "prompt_tokens": 1480,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 0.93,
+          "tokens_per_s": 53.8,
+          "attempts": 1,
+          "t": 7.021552801132202
+        },
+        {
+          "n": 7,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.24,
+          "load_s": 0.01,
+          "prompt_tokens": 1596,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 1.09,
+          "tokens_per_s": 45.9,
+          "attempts": 1,
+          "t": 8.26218581199646
+        },
+        {
+          "n": 8,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.15,
+          "load_s": 0.01,
+          "prompt_tokens": 1712,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 0.98,
+          "tokens_per_s": 51.0,
+          "attempts": 1,
+          "t": 9.412184953689575
+        },
+        {
+          "n": 9,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.25,
+          "load_s": 0.01,
+          "prompt_tokens": 1828,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 1.1,
+          "tokens_per_s": 45.5,
+          "attempts": 1,
+          "t": 10.659452676773071
+        },
+        {
+          "n": 10,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.15,
+          "load_s": 0.01,
+          "prompt_tokens": 1944,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 50,
+          "generation_s": 1.0,
+          "tokens_per_s": 50.0,
+          "attempts": 1,
+          "t": 11.81088376045227
+        },
+        {
+          "n": 11,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 2.15,
+          "load_s": 0.01,
+          "prompt_tokens": 2086,
+          "prompt_eval_s": 0.11,
+          "output_tokens": 87,
+          "generation_s": 1.99,
+          "tokens_per_s": 43.7,
+          "attempts": 1,
+          "t": 13.963134527206421
+        }
+      ],
+      "faulty_component": "base_controller"
+    },
+    {
+      "phase": "resolved",
+      "diagnosis_s": 13.33,
+      "total_s": 18.38,
+      "approval_to_verified_s": 5.04,
+      "repair_to_verified_s": 5.02,
+      "model_calls": 11,
+      "tool_calls": 2,
+      "diag_model_wall_s": 13.34,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": -0.01,
+      "diag_model_load_s": 0.11,
+      "diag_model_prompt_eval_s": 1.2,
+      "diag_model_generation_s": 11.65,
+      "diag_prompt_tokens": 16275,
+      "diag_output_tokens": 587,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 0,
+          "started": 0.0003597736358642578
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 1.2988331317901611
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.3,
+          "load_s": 0.01,
+          "prompt_tokens": 869,
+          "prompt_eval_s": 0.32,
+          "output_tokens": 50,
+          "generation_s": 0.94,
+          "tokens_per_s": 53.2,
+          "attempts": 1,
+          "t": 1.2985577583312988
+        },
+        {
+          "n": 2,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.09,
+          "load_s": 0.01,
+          "prompt_tokens": 1016,
+          "prompt_eval_s": 0.13,
+          "output_tokens": 50,
+          "generation_s": 0.93,
+          "tokens_per_s": 53.8,
+          "attempts": 1,
+          "t": 2.3893842697143555
+        },
+        {
+          "n": 3,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.1,
+          "load_s": 0.01,
+          "prompt_tokens": 1132,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 0.99,
+          "tokens_per_s": 50.5,
+          "attempts": 1,
+          "t": 3.49379301071167
+        },
+        {
+          "n": 4,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.05,
+          "load_s": 0.01,
+          "prompt_tokens": 1248,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 0.93,
+          "tokens_per_s": 53.8,
+          "attempts": 1,
+          "t": 4.544234275817871
+        },
+        {
+          "n": 5,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.16,
+          "load_s": 0.01,
+          "prompt_tokens": 1364,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 1.04,
+          "tokens_per_s": 48.1,
+          "attempts": 1,
+          "t": 5.700452089309692
+        },
+        {
+          "n": 6,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.04,
+          "load_s": 0.01,
+          "prompt_tokens": 1480,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 0.91,
+          "tokens_per_s": 54.9,
+          "attempts": 1,
+          "t": 6.736150026321411
+        },
+        {
+          "n": 7,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.11,
+          "load_s": 0.01,
+          "prompt_tokens": 1596,
+          "prompt_eval_s": 0.1,
+          "output_tokens": 50,
+          "generation_s": 0.97,
+          "tokens_per_s": 51.5,
+          "attempts": 1,
+          "t": 7.84517240524292
+        },
+        {
+          "n": 8,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.25,
+          "load_s": 0.01,
+          "prompt_tokens": 1712,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 1.12,
+          "tokens_per_s": 44.6,
+          "attempts": 1,
+          "t": 9.093619585037231
+        },
+        {
+          "n": 9,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.08,
+          "load_s": 0.01,
+          "prompt_tokens": 1828,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 0.94,
+          "tokens_per_s": 53.2,
+          "attempts": 1,
+          "t": 10.170340776443481
+        },
+        {
+          "n": 10,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.17,
+          "load_s": 0.01,
+          "prompt_tokens": 1944,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 1.04,
+          "tokens_per_s": 48.1,
+          "attempts": 1,
+          "t": 11.339992761611938
+        },
+        {
+          "n": 11,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 1.99,
+          "load_s": 0.01,
+          "prompt_tokens": 2086,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 87,
+          "generation_s": 1.84,
+          "tokens_per_s": 47.3,
+          "attempts": 1,
+          "t": 13.332623958587646
+        }
+      ],
+      "faulty_component": "base_controller"
+    }
+  ],
+  "median_diagnosis_s": 13.5
+}

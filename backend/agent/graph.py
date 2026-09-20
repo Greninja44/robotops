@@ -28,10 +28,11 @@ from .state import Investigation, Phase
 
 MAX_STEPS = 10           # diagnostic tool calls per round
 MAX_ROUNDS = 2           # a failed verification sends the agent back to investigate once
-MAX_REJECTED_DIAGNOSES = 3
+MAX_REJECTED_DIAGNOSES = 5
 MAX_NUDGES = 2
 APPROVAL_TIMEOUT_S = 15 * 60
 MAX_CALLS_PER_TURN = 2
+MIN_OWN_CHECKS = 2       # process rule: the model must run >= 2 checks of its own (beyond the automatic baseline) before concluding
 
 
 def _tool_specs() -> list[dict]:
@@ -52,7 +53,7 @@ class Agent:
         self.audit = audit
         self.auto_approve = auto_approve
         self.max_steps = max_steps
-        self.chat = chat or llm.chat
+        self.chat = chat or llm.default_chat()
         self.tools = _tool_specs()
 
     # ------------------------------------------------------------------ helpers
@@ -76,6 +77,7 @@ class Agent:
     # ------------------------------------------------------------------ phases
     async def run(self, inv: Investigation) -> Investigation:
         self._log(inv, "investigation_started", query=inv.query, auto_approve=self.auto_approve)
+        llm.retry_notifier.set(lambda d: self._on_model_event(inv, d))   # live "model timeout / retrying" in the timeline
         try:
             await self._observe(inv)
             while True:
@@ -113,6 +115,24 @@ class Agent:
                   error=inv.error, verification=(inv.verification or {}).get("verified"))
         return inv
 
+    def _selectable_tools(self, seen: dict, allow_diagnose: bool = True, only_diagnose: bool = False,
+                          exclude: frozenset | set = frozenset()) -> list[dict]:
+        """What the model may choose this turn. Parameterless tools it already ran are removed (no pointless
+        repeats) and submit_diagnosis is removed while the process rules say it may not conclude yet."""
+        if only_diagnose:
+            return [t for t in self.tools if t["function"]["name"] == "submit_diagnosis"]
+        used = {k[:-2] for k in seen if k.endswith("{}")} | set(exclude)
+        avail = [t for t in self.tools if t["function"]["name"] not in used
+                 and (allow_diagnose or t["function"]["name"] != "submit_diagnosis")]
+        return avail if any(t["function"]["name"] != "submit_diagnosis" for t in avail) else \
+            [t for t in self.tools if allow_diagnose or t["function"]["name"] != "submit_diagnosis"]
+
+    def _on_model_event(self, inv: Investigation, d: dict):
+        d = dict(d)
+        kind = d.pop("kind")
+        inv.emit(kind, **d)
+        self._log(inv, kind, **d)
+
     def _fail(self, inv: Investigation, message: str):
         """Stop in ERROR from any phase (evidence gathered so far is kept)."""
         inv.error = message
@@ -128,7 +148,7 @@ class Agent:
             raise RuntimeError(f"cannot observe the ROS system: {result.error}")
         inv.messages = [
             {"role": "system", "content": prompts.system_prompt(self.max_steps, llm.THINK)},
-            {"role": "user", "content": prompts.user_prompt(inv.query, format_for_llm(result, evidence))},
+            {"role": "user", "content": prompts.user_prompt(inv.query, format_for_llm(result, evidence, ledger=inv.ledger))},
         ]
         inv.transition(Phase.INVESTIGATING)
 
@@ -136,6 +156,9 @@ class Agent:
         steps = nudges = rejected = 0
         forced = False
         seen: dict[str, list[str]] = {}
+        own_checks = 0
+        block_diagnose = False      # set after a rejected diagnosis: the next turn must be a new check, not a resubmission
+        repeat_blocked: set[str] = set()   # tools the model just tried to repeat verbatim: unavailable for the next turn
         if inv.round == 1:  # the baseline get_ros_health was already run automatically; don't spend a step repeating it
             seen["get_ros_health" + json.dumps({}, sort_keys=True)] = [e.id for e in inv.ledger.items.values() if e.step == 1]
         llm_turns = 0
@@ -148,11 +171,14 @@ class Agent:
                 forced = True
                 inv.messages.append({"role": "user", "content": prompts.FORCE_DIAGNOSIS})
                 inv.emit("note", text=f"Step budget ({self.max_steps}) reached - asking for a diagnosis")
-            reply = await self.chat(inv.messages, self.tools)
+            allow = forced or (own_checks >= MIN_OWN_CHECKS and not block_diagnose)
+            reply = await self.chat(inv.messages, self._selectable_tools(
+                seen, allow_diagnose=allow, only_diagnose=forced, exclude=repeat_blocked))
             inv.llm_calls += 1
             inv.llm_seconds += reply.seconds
+            inv.emit("llm_call", n=inv.llm_calls, tools=[tc.name for tc in reply.tool_calls], **reply.metrics)
             self._log(inv, "llm_call", seconds=round(reply.seconds, 1), tokens=reply.eval_tokens,
-                      tool_calls=[tc.name for tc in reply.tool_calls])
+                      tool_calls=[tc.name for tc in reply.tool_calls], **reply.metrics)
             for m in reply.malformed:
                 inv.emit("warning", text=f"Malformed model output ignored: {m}")
             if not reply.tool_calls:
@@ -173,7 +199,11 @@ class Agent:
                 if tc.name == "submit_diagnosis":
                     inv.transition(Phase.DIAGNOSING)
                     self._log(inv, "diagnosis_submitted", raw=tc.arguments)
-                    diag, errors = validate(tc.arguments, inv.ledger)
+                    if own_checks < MIN_OWN_CHECKS and not forced:
+                        diag, errors = None, [f"you have made {own_checks} check(s) of your own; make at least "
+                                              f"{MIN_OWN_CHECKS} direct checks (interfaces, status, TF, parameters) before concluding"]
+                    else:
+                        diag, errors = validate(tc.arguments, inv.ledger)
                     if diag is not None:
                         inv.diagnosis = diag.model_dump()
                         inv.diagnosed_at = time.time()
@@ -183,6 +213,7 @@ class Agent:
                                   evidence=[e.id for e in diag.evidence])
                         return diag
                     rejected += 1
+                    block_diagnose = True
                     inv.emit("diagnosis_rejected", errors=errors, submitted=tc.arguments)
                     self._log(inv, "diagnosis_rejected", errors=errors)
                     if rejected >= MAX_REJECTED_DIAGNOSES:
@@ -191,7 +222,7 @@ class Agent:
                     inv.messages.append({"role": "tool", "tool_name": tc.name,
                                          "content": "DIAGNOSIS REJECTED: " + " | ".join(errors)})
                     continue
-                args = {k: v for k, v in tc.arguments.items() if k != "reason"}
+                args = registry.normalize_args(tc.name, {k: v for k, v in tc.arguments.items() if k != "reason"})
                 reason = tc.arguments.get("reason") if isinstance(tc.arguments.get("reason"), str) else None
                 if forced:
                     inv.messages.append({"role": "tool", "tool_name": tc.name,
@@ -199,16 +230,21 @@ class Agent:
                     continue
                 key = tc.name + json.dumps(args, sort_keys=True, default=str)
                 if key in seen:
-                    steps += 1
+                    repeat_blocked = {tc.name}       # duplicates do not consume the step budget; the tool is withheld next turn
+                    used = {k.split("{")[0] for k in seen}
+                    unused = [t for t in registry.READ_ONLY_TOOLS if t not in used]
                     inv.messages.append({"role": "tool", "tool_name": tc.name, "content": (
                         f"Duplicate call - you already have these findings: {', '.join(seen[key]) or 'none'}. "
-                        "Use a different tool or submit_diagnosis.")})
+                        f"Tools you have not used yet: {', '.join(unused)}.")})
                     continue
                 steps += 1
                 result, evidence = await self._run_tool(inv, tc.name, args, reason)
+                own_checks += 1
+                block_diagnose = False
+                repeat_blocked = set()
                 seen[key] = [e.id for e in evidence]
                 inv.messages.append({"role": "tool", "tool_name": tc.name,
-                                     "content": format_for_llm(result, evidence)})
+                                     "content": format_for_llm(result, evidence, ledger=inv.ledger)})
 
     async def _approval(self, inv: Investigation, diag) -> bool:
         act = diag.recommended_action

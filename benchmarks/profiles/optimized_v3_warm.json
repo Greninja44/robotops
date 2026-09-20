@@ -1,0 +1,273 @@
+{
+  "model": "qwen3:4b",
+  "think": false,
+  "fault": "controller_crash",
+  "cold": false,
+  "runs": [
+    {
+      "phase": "resolved",
+      "diagnosis_s": 4.53,
+      "total_s": 9.59,
+      "approval_to_verified_s": 5.07,
+      "repair_to_verified_s": 5.06,
+      "model_calls": 3,
+      "tool_calls": 3,
+      "diag_model_wall_s": 4.51,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": 0.01,
+      "diag_model_load_s": 0.03,
+      "diag_model_prompt_eval_s": 0.59,
+      "diag_model_generation_s": 3.8,
+      "diag_prompt_tokens": 3124,
+      "diag_output_tokens": 182,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 0,
+          "started": 0.00016808509826660156
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 1.5956971645355225
+        },
+        {
+          "step": 3,
+          "tool": "list_topics",
+          "args": {},
+          "tool_ms": 2,
+          "started": 2.6808931827545166
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.59,
+          "load_s": 0.01,
+          "prompt_tokens": 869,
+          "prompt_eval_s": 0.36,
+          "output_tokens": 50,
+          "generation_s": 1.19,
+          "tokens_per_s": 42.0,
+          "attempts": 1,
+          "t": 1.5953562259674072
+        },
+        {
+          "n": 2,
+          "tools": [
+            "list_topics"
+          ],
+          "wall_s": 1.08,
+          "load_s": 0.01,
+          "prompt_tokens": 1016,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 50,
+          "generation_s": 0.95,
+          "tokens_per_s": 52.6,
+          "attempts": 1,
+          "t": 2.680556058883667
+        },
+        {
+          "n": 3,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 1.84,
+          "load_s": 0.01,
+          "prompt_tokens": 1239,
+          "prompt_eval_s": 0.14,
+          "output_tokens": 82,
+          "generation_s": 1.66,
+          "tokens_per_s": 49.4,
+          "attempts": 1,
+          "t": 4.525680065155029
+        }
+      ],
+      "faulty_component": "base_controller"
+    },
+    {
+      "phase": "resolved",
+      "diagnosis_s": 3.98,
+      "total_s": 9.01,
+      "approval_to_verified_s": 5.03,
+      "repair_to_verified_s": 5.02,
+      "model_calls": 3,
+      "tool_calls": 3,
+      "diag_model_wall_s": 3.98,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": 0.0,
+      "diag_model_load_s": 0.03,
+      "diag_model_prompt_eval_s": 0.3,
+      "diag_model_generation_s": 3.57,
+      "diag_prompt_tokens": 3124,
+      "diag_output_tokens": 182,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 0,
+          "started": 0.0004363059997558594
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 1.0934827327728271
+        },
+        {
+          "step": 3,
+          "tool": "list_topics",
+          "args": {},
+          "tool_ms": 1,
+          "started": 2.2201526165008545
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.09,
+          "load_s": 0.01,
+          "prompt_tokens": 869,
+          "prompt_eval_s": 0.06,
+          "output_tokens": 50,
+          "generation_s": 1.0,
+          "tokens_per_s": 50.0,
+          "attempts": 1,
+          "t": 1.0931527614593506
+        },
+        {
+          "n": 2,
+          "tools": [
+            "list_topics"
+          ],
+          "wall_s": 1.13,
+          "load_s": 0.01,
+          "prompt_tokens": 1016,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 50,
+          "generation_s": 1.0,
+          "tokens_per_s": 50.0,
+          "attempts": 1,
+          "t": 2.219762086868286
+        },
+        {
+          "n": 3,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 1.76,
+          "load_s": 0.01,
+          "prompt_tokens": 1239,
+          "prompt_eval_s": 0.15,
+          "output_tokens": 82,
+          "generation_s": 1.57,
+          "tokens_per_s": 52.2,
+          "attempts": 1,
+          "t": 3.9829769134521484
+        }
+      ],
+      "faulty_component": "base_controller"
+    },
+    {
+      "phase": "resolved",
+      "diagnosis_s": 3.94,
+      "total_s": 8.98,
+      "approval_to_verified_s": 5.04,
+      "repair_to_verified_s": 5.03,
+      "model_calls": 3,
+      "tool_calls": 3,
+      "diag_model_wall_s": 3.94,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": -0.0,
+      "diag_model_load_s": 0.01,
+      "diag_model_prompt_eval_s": 0.26,
+      "diag_model_generation_s": 3.55,
+      "diag_prompt_tokens": 3124,
+      "diag_output_tokens": 182,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 0,
+          "started": 0.0003764629364013672
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 1.0784757137298584
+        },
+        {
+          "step": 3,
+          "tool": "list_topics",
+          "args": {},
+          "tool_ms": 1,
+          "started": 2.1666512489318848
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.08,
+          "load_s": 0.0,
+          "prompt_tokens": 869,
+          "prompt_eval_s": 0.06,
+          "output_tokens": 50,
+          "generation_s": 0.98,
+          "tokens_per_s": 51.0,
+          "attempts": 1,
+          "t": 1.0781266689300537
+        },
+        {
+          "n": 2,
+          "tools": [
+            "list_topics"
+          ],
+          "wall_s": 1.09,
+          "load_s": 0.0,
+          "prompt_tokens": 1016,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 50,
+          "generation_s": 0.95,
+          "tokens_per_s": 52.6,
+          "attempts": 1,
+          "t": 2.1663737297058105
+        },
+        {
+          "n": 3,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 1.77,
+          "load_s": 0.01,
+          "prompt_tokens": 1239,
+          "prompt_eval_s": 0.11,
+          "output_tokens": 82,
+          "generation_s": 1.62,
+          "tokens_per_s": 50.6,
+          "attempts": 1,
+          "t": 3.9404563903808594
+        }
+      ],
+      "faulty_component": "base_controller"
+    }
+  ],
+  "median_diagnosis_s": 4.0
+}

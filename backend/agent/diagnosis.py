@@ -11,7 +11,7 @@ from pydantic import BaseModel, Field
 
 from backend.safety import policies
 
-from .evidence import Evidence, EvidenceLedger
+from .evidence import Evidence, EvidenceLedger, anomaly_digest
 
 NONE = "none"
 
@@ -110,11 +110,17 @@ def validate(raw: dict, ledger: EvidenceLedger) -> tuple[Diagnosis | None, list[
         return Diagnosis(status="healthy", root_cause=root_cause, faulty_component=NONE, evidence=cited,
                          confidence=0.0, confidence_basis=["no fault claimed"]), []
 
+    if len({e.step for e in cited}) < 2:
+        return None, ["cite findings from at least 2 different tool calls (corroboration): make one more direct "
+                      "check of the suspected component (e.g. inspect_topic, inspect_node, check_tf, "
+                      "get_component_status), then resubmit"]
+
     supporting = policies.evidence_supports_target(cited, component)
     try:
         policies.repair_gate(cited, component)
     except policies.PolicyViolation as e:
-        return None, [f"insufficient evidence: {e}. Investigate further, then resubmit."]
+        return None, [f"insufficient evidence: {e}. Anomalies observed so far:\n{anomaly_digest(ledger)}\n"
+                      f"Reconsider which component those anomalies point to, check it, then resubmit."]
 
     score, basis = evidence_score(cited, supporting)
     rec = None

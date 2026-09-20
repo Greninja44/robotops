@@ -1,0 +1,105 @@
+{
+  "model": "qwen3:4b",
+  "think": false,
+  "fault": "controller_crash",
+  "cold": true,
+  "runs": [
+    {
+      "phase": "resolved",
+      "diagnosis_s": 12.48,
+      "total_s": 17.55,
+      "approval_to_verified_s": 5.08,
+      "repair_to_verified_s": 5.06,
+      "model_calls": 4,
+      "tool_calls": 2,
+      "diag_model_wall_s": 12.47,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": 0.01,
+      "diag_model_load_s": 6.68,
+      "diag_model_prompt_eval_s": 0.77,
+      "diag_model_generation_s": 4.84,
+      "diag_prompt_tokens": 4175,
+      "diag_output_tokens": 229,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 0,
+          "started": 0.0019745826721191406
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 8.33876633644104
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 8.33,
+          "load_s": 6.65,
+          "prompt_tokens": 869,
+          "prompt_eval_s": 0.5,
+          "output_tokens": 50,
+          "generation_s": 1.14,
+          "tokens_per_s": 43.9,
+          "attempts": 1,
+          "t": 8.33828353881836
+        },
+        {
+          "n": 2,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.16,
+          "load_s": 0.01,
+          "prompt_tokens": 1016,
+          "prompt_eval_s": 0.1,
+          "output_tokens": 50,
+          "generation_s": 0.99,
+          "tokens_per_s": 50.5,
+          "attempts": 1,
+          "t": 9.49647307395935
+        },
+        {
+          "n": 3,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.21,
+          "load_s": 0.01,
+          "prompt_tokens": 1102,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 50,
+          "generation_s": 1.06,
+          "tokens_per_s": 47.2,
+          "attempts": 1,
+          "t": 10.704257726669312
+        },
+        {
+          "n": 4,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 1.77,
+          "load_s": 0.01,
+          "prompt_tokens": 1188,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 79,
+          "generation_s": 1.65,
+          "tokens_per_s": 47.9,
+          "attempts": 1,
+          "t": 12.477127075195312
+        }
+      ],
+      "faulty_component": "base_controller"
+    }
+  ],
+  "median_diagnosis_s": 12.5
+}

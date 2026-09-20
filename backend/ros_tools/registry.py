@@ -25,7 +25,7 @@ READ_ONLY_TOOLS = {
                       _TOPIC, ["topic"]),
     "measure_topic_rate": (topics.measure_topic_rate,
                            "Subscribe to a topic for a few seconds and measure its real message rate in Hz.",
-                           {**_TOPIC, "duration": {"type": "number", "description": "seconds, 1-8 (default 3)"}},
+                           {**_TOPIC, "duration": {"type": "number", "description": "seconds, 1-4 (default 2)"}},
                            ["topic"]),
     "check_tf": (tf.check_tf,
                  "Check that TF transforms are available and fresh. Omit both frames to check all expected transforms.",
@@ -53,6 +53,14 @@ def llm_tool_specs() -> list[dict]:
             "name": name, "description": desc,
             "parameters": {"type": "object", "properties": props, "required": required}}})
     return specs
+
+
+def normalize_args(name: str, args: dict | None) -> dict:
+    """Keep only the arguments a tool declares (models sometimes pass irrelevant ones); drop empty values."""
+    if name not in READ_ONLY_TOOLS:
+        return dict(args or {})
+    props = READ_ONLY_TOOLS[name][2]
+    return {k: v for k, v in (args or {}).items() if k in props and v not in (None, "")}
 
 
 def execute(client, name: str, args: dict | None) -> ToolResult:

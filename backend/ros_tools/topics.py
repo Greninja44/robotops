@@ -94,7 +94,7 @@ def get_subscribers(client, r, topic: str):
 @tool("measure_topic_rate")
 def measure_topic_rate(client, r, topic: str, duration: float = 3.0):
     topic = ros_name(topic, "topic")
-    duration = clamp(duration, 1.0, 8.0, 3.0)
+    duration = clamp(duration, 1.0, 4.0, 2.0)
     r.args.update(topic=topic, duration=duration)
     exp = manifest()["topics"].get(topic)
     s = client.sample_topic(topic, duration)
@@ -108,8 +108,8 @@ def measure_topic_rate(client, r, topic: str, duration: float = 3.0):
                   expected_min_hz=exp["min_rate_hz"] if exp else None)
     pubs = exp["publishers"] if exp else []
     if not times:
-        r.anomaly(f"{topic}: 0 messages received in {duration:.1f}s (not publishing)", topic, *pubs)
+        r.anomaly(f"{topic}: 0 messages received in a {duration:.0f} s window (not publishing)", topic, *pubs)
     elif exp and rate < exp["min_rate_hz"]:
         r.anomaly(f"{topic}: {rate:.1f} Hz is below the expected minimum {exp['min_rate_hz']} Hz", topic, *pubs)
     else:
-        r.normal(f"{topic}: publishing at {rate:.1f} Hz ({len(times)} messages in {duration:.1f}s)", topic, *pubs)
+        r.normal(f"{topic}: publishing at {rate:.1f} Hz - healthy (measured over a {duration:.0f} s window)", topic, *pubs)

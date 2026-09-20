@@ -1,0 +1,489 @@
+{
+  "model": "qwen3:4b",
+  "think": false,
+  "fault": "controller_crash",
+  "cold": false,
+  "runs": [
+    {
+      "phase": "resolved",
+      "diagnosis_s": 13.43,
+      "total_s": 18.52,
+      "approval_to_verified_s": 5.09,
+      "repair_to_verified_s": 5.08,
+      "model_calls": 4,
+      "tool_calls": 2,
+      "diag_model_wall_s": 13.42,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": 0.01,
+      "diag_model_load_s": 8.29,
+      "diag_model_prompt_eval_s": 0.71,
+      "diag_model_generation_s": 4.29,
+      "diag_prompt_tokens": 4175,
+      "diag_output_tokens": 229,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 0,
+          "started": 0.0003876686096191406
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 9.79718279838562
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 9.79,
+          "load_s": 8.28,
+          "prompt_tokens": 869,
+          "prompt_eval_s": 0.49,
+          "output_tokens": 50,
+          "generation_s": 0.98,
+          "tokens_per_s": 51.0,
+          "attempts": 1,
+          "t": 9.796759605407715
+        },
+        {
+          "n": 2,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.01,
+          "load_s": 0.01,
+          "prompt_tokens": 1016,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 50,
+          "generation_s": 0.89,
+          "tokens_per_s": 56.2,
+          "attempts": 1,
+          "t": 10.809016227722168
+        },
+        {
+          "n": 3,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 0.99,
+          "load_s": 0.0,
+          "prompt_tokens": 1102,
+          "prompt_eval_s": 0.06,
+          "output_tokens": 50,
+          "generation_s": 0.89,
+          "tokens_per_s": 56.2,
+          "attempts": 1,
+          "t": 11.795109510421753
+        },
+        {
+          "n": 4,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 1.63,
+          "load_s": 0.0,
+          "prompt_tokens": 1188,
+          "prompt_eval_s": 0.07,
+          "output_tokens": 79,
+          "generation_s": 1.53,
+          "tokens_per_s": 51.6,
+          "attempts": 1,
+          "t": 13.427056312561035
+        }
+      ],
+      "faulty_component": "base_controller"
+    },
+    {
+      "phase": "resolved",
+      "diagnosis_s": 4.82,
+      "total_s": 9.86,
+      "approval_to_verified_s": 5.04,
+      "repair_to_verified_s": 5.02,
+      "model_calls": 4,
+      "tool_calls": 2,
+      "diag_model_wall_s": 4.81,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": 0.01,
+      "diag_model_load_s": 0.01,
+      "diag_model_prompt_eval_s": 0.32,
+      "diag_model_generation_s": 4.37,
+      "diag_prompt_tokens": 4175,
+      "diag_output_tokens": 229,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 0,
+          "started": 0.00023221969604492188
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 1.2536780834197998
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.25,
+          "load_s": 0.0,
+          "prompt_tokens": 869,
+          "prompt_eval_s": 0.1,
+          "output_tokens": 50,
+          "generation_s": 1.13,
+          "tokens_per_s": 44.2,
+          "attempts": 1,
+          "t": 1.2533643245697021
+        },
+        {
+          "n": 2,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.01,
+          "load_s": 0.01,
+          "prompt_tokens": 1016,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 0.9,
+          "tokens_per_s": 55.6,
+          "attempts": 1,
+          "t": 2.26955246925354
+        },
+        {
+          "n": 3,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 0.99,
+          "load_s": 0.0,
+          "prompt_tokens": 1102,
+          "prompt_eval_s": 0.07,
+          "output_tokens": 50,
+          "generation_s": 0.89,
+          "tokens_per_s": 56.2,
+          "attempts": 1,
+          "t": 3.262295722961426
+        },
+        {
+          "n": 4,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 1.56,
+          "load_s": 0.0,
+          "prompt_tokens": 1188,
+          "prompt_eval_s": 0.07,
+          "output_tokens": 79,
+          "generation_s": 1.45,
+          "tokens_per_s": 54.5,
+          "attempts": 1,
+          "t": 4.82291316986084
+        }
+      ],
+      "faulty_component": "base_controller"
+    },
+    {
+      "phase": "resolved",
+      "diagnosis_s": 5.42,
+      "total_s": 10.45,
+      "approval_to_verified_s": 5.04,
+      "repair_to_verified_s": 5.02,
+      "model_calls": 4,
+      "tool_calls": 2,
+      "diag_model_wall_s": 5.41,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": 0.0,
+      "diag_model_load_s": 0.03,
+      "diag_model_prompt_eval_s": 0.6,
+      "diag_model_generation_s": 4.65,
+      "diag_prompt_tokens": 4175,
+      "diag_output_tokens": 229,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 3,
+          "started": 0.0006227493286132812
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 1.5541508197784424
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.55,
+          "load_s": 0.0,
+          "prompt_tokens": 869,
+          "prompt_eval_s": 0.35,
+          "output_tokens": 50,
+          "generation_s": 1.16,
+          "tokens_per_s": 43.1,
+          "attempts": 1,
+          "t": 1.5538811683654785
+        },
+        {
+          "n": 2,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.08,
+          "load_s": 0.01,
+          "prompt_tokens": 1016,
+          "prompt_eval_s": 0.09,
+          "output_tokens": 50,
+          "generation_s": 0.95,
+          "tokens_per_s": 52.6,
+          "attempts": 1,
+          "t": 2.633457899093628
+        },
+        {
+          "n": 3,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.13,
+          "load_s": 0.01,
+          "prompt_tokens": 1102,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 1.01,
+          "tokens_per_s": 49.5,
+          "attempts": 1,
+          "t": 3.7677571773529053
+        },
+        {
+          "n": 4,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 1.65,
+          "load_s": 0.01,
+          "prompt_tokens": 1188,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 79,
+          "generation_s": 1.53,
+          "tokens_per_s": 51.6,
+          "attempts": 1,
+          "t": 5.414856672286987
+        }
+      ],
+      "faulty_component": "base_controller"
+    },
+    {
+      "phase": "resolved",
+      "diagnosis_s": 4.98,
+      "total_s": 10.03,
+      "approval_to_verified_s": 5.05,
+      "repair_to_verified_s": 5.03,
+      "model_calls": 4,
+      "tool_calls": 2,
+      "diag_model_wall_s": 4.98,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": 0.0,
+      "diag_model_load_s": 0.04,
+      "diag_model_prompt_eval_s": 0.33,
+      "diag_model_generation_s": 4.47,
+      "diag_prompt_tokens": 4175,
+      "diag_output_tokens": 229,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 0,
+          "started": 0.0004200935363769531
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 1.0876357555389404
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.09,
+          "load_s": 0.01,
+          "prompt_tokens": 869,
+          "prompt_eval_s": 0.06,
+          "output_tokens": 50,
+          "generation_s": 0.99,
+          "tokens_per_s": 50.5,
+          "attempts": 1,
+          "t": 1.0872986316680908
+        },
+        {
+          "n": 2,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.11,
+          "load_s": 0.01,
+          "prompt_tokens": 1016,
+          "prompt_eval_s": 0.11,
+          "output_tokens": 50,
+          "generation_s": 0.95,
+          "tokens_per_s": 52.6,
+          "attempts": 1,
+          "t": 2.1982948780059814
+        },
+        {
+          "n": 3,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.07,
+          "load_s": 0.01,
+          "prompt_tokens": 1102,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 0.94,
+          "tokens_per_s": 53.2,
+          "attempts": 1,
+          "t": 3.2706165313720703
+        },
+        {
+          "n": 4,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 1.71,
+          "load_s": 0.01,
+          "prompt_tokens": 1188,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 79,
+          "generation_s": 1.59,
+          "tokens_per_s": 49.7,
+          "attempts": 1,
+          "t": 4.980860233306885
+        }
+      ],
+      "faulty_component": "base_controller"
+    },
+    {
+      "phase": "resolved",
+      "diagnosis_s": 5.69,
+      "total_s": 10.74,
+      "approval_to_verified_s": 5.06,
+      "repair_to_verified_s": 5.04,
+      "model_calls": 4,
+      "tool_calls": 2,
+      "diag_model_wall_s": 5.67,
+      "diag_tools_s": 0.0,
+      "diag_overhead_s": 0.02,
+      "diag_model_load_s": 0.09,
+      "diag_model_prompt_eval_s": 0.32,
+      "diag_model_generation_s": 5.0,
+      "diag_prompt_tokens": 4175,
+      "diag_output_tokens": 229,
+      "steps": [
+        {
+          "step": 1,
+          "tool": "get_ros_health",
+          "args": {},
+          "tool_ms": 0,
+          "started": 0.0007569789886474609
+        },
+        {
+          "step": 2,
+          "tool": "list_nodes",
+          "args": {},
+          "tool_ms": 0,
+          "started": 1.2350075244903564
+        }
+      ],
+      "llm_calls": [
+        {
+          "n": 1,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.23,
+          "load_s": 0.01,
+          "prompt_tokens": 869,
+          "prompt_eval_s": 0.06,
+          "output_tokens": 50,
+          "generation_s": 1.13,
+          "tokens_per_s": 44.2,
+          "attempts": 1,
+          "t": 1.2345690727233887
+        },
+        {
+          "n": 2,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.26,
+          "load_s": 0.04,
+          "prompt_tokens": 1016,
+          "prompt_eval_s": 0.1,
+          "output_tokens": 50,
+          "generation_s": 1.01,
+          "tokens_per_s": 49.5,
+          "attempts": 1,
+          "t": 2.499786853790283
+        },
+        {
+          "n": 3,
+          "tools": [
+            "list_nodes"
+          ],
+          "wall_s": 1.31,
+          "load_s": 0.01,
+          "prompt_tokens": 1102,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 50,
+          "generation_s": 1.16,
+          "tokens_per_s": 43.1,
+          "attempts": 1,
+          "t": 3.8095438480377197
+        },
+        {
+          "n": 4,
+          "tools": [
+            "submit_diagnosis"
+          ],
+          "wall_s": 1.87,
+          "load_s": 0.03,
+          "prompt_tokens": 1188,
+          "prompt_eval_s": 0.08,
+          "output_tokens": 79,
+          "generation_s": 1.7,
+          "tokens_per_s": 46.5,
+          "attempts": 1,
+          "t": 5.684919118881226
+        }
+      ],
+      "faulty_component": "base_controller"
+    }
+  ],
+  "median_diagnosis_s": 5.4
+}
