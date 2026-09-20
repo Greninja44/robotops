@@ -1,0 +1,175 @@
+{
+  "started": "2026-09-20 04:51:53",
+  "query": "Robot stopped moving. Diagnose it.",
+  "runs": [
+    {
+      "run": 1,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 8.9,
+      "fault_visible_s": 1.8,
+      "to_proposal_s": 19.1,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 24.6,
+      "incident": {
+        "ROOT CAUSE": "base_controller",
+        "DIAGNOSIS": "19.0 s",
+        "TOOLS USED": "5",
+        "REPAIR": "restart_component",
+        "VERIFICATION": "24/24 checks",
+        "APPROVE \u2192 VERIFIED": "5.1 s",
+        "TOTAL RECOVERY": "24.2 s"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 7,
+      "tool_calls": 5,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 19.0,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "check_tf",
+        "measure_topic_rate",
+        "get_component_status"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 2,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 8.6,
+      "fault_visible_s": 0.8,
+      "to_proposal_s": 19.0,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 24.4,
+      "incident": {
+        "ROOT CAUSE": "base_controller",
+        "DIAGNOSIS": "18.5 s",
+        "TOOLS USED": "5",
+        "REPAIR": "restart_component",
+        "VERIFICATION": "24/24 checks",
+        "APPROVE \u2192 VERIFIED": "5.0 s",
+        "TOTAL RECOVERY": "24.1 s"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 7,
+      "tool_calls": 5,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 18.5,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "check_tf",
+        "measure_topic_rate",
+        "get_component_status"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 3,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 8.3,
+      "fault_visible_s": 1.2,
+      "to_proposal_s": 10.0,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 15.4,
+      "incident": {
+        "ROOT CAUSE": "base_controller",
+        "DIAGNOSIS": "9.5 s",
+        "TOOLS USED": "3",
+        "REPAIR": "restart_component",
+        "VERIFICATION": "24/24 checks",
+        "APPROVE \u2192 VERIFIED": "5.0 s",
+        "TOTAL RECOVERY": "15.0 s"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 3,
+      "tool_calls": 3,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 9.5,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "get_recent_diagnostics",
+        "measure_topic_rate"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 4,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 8.5,
+      "fault_visible_s": 1.0,
+      "to_proposal_s": 23.1,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 28.5,
+      "incident": {
+        "ROOT CAUSE": "base_controller",
+        "DIAGNOSIS": "22.9 s",
+        "TOOLS USED": "6",
+        "REPAIR": "restart_component",
+        "VERIFICATION": "24/24 checks",
+        "APPROVE \u2192 VERIFIED": "5.0 s",
+        "TOTAL RECOVERY": "28.1 s"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 10,
+      "tool_calls": 6,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 22.9,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "check_tf",
+        "inspect_node",
+        "measure_topic_rate",
+        "inspect_node"
+      ],
+      "timeouts": 0
+    },
+    {
+      "run": 5,
+      "ok": true,
+      "stage": "check healthy",
+      "prepare_s": 8.4,
+      "fault_visible_s": 1.6,
+      "to_proposal_s": 19.0,
+      "approve_to_resolved_s": 5.4,
+      "ask_to_resolved_s": 24.4,
+      "incident": {
+        "ROOT CAUSE": "base_controller",
+        "DIAGNOSIS": "18.5 s",
+        "TOOLS USED": "5",
+        "REPAIR": "restart_component",
+        "VERIFICATION": "24/24 checks",
+        "APPROVE \u2192 VERIFIED": "5.0 s",
+        "TOTAL RECOVERY": "24.1 s"
+      },
+      "health_after": "HEALTHY",
+      "phase": "resolved",
+      "model_calls": 7,
+      "tool_calls": 5,
+      "diagnosis": "base_controller",
+      "diagnosis_s": 18.5,
+      "verification": "24/24",
+      "tools": [
+        "get_ros_health",
+        "measure_topic_rate",
+        "check_tf",
+        "measure_topic_rate",
+        "get_component_status"
+      ],
+      "timeouts": 0
+    }
+  ]
+}
