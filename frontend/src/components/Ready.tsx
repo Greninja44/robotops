@@ -18,6 +18,11 @@ export function ReadyBanner({ readiness, preparing, health, inv, connected }: {
   else if (running) { tone = 'live'; title = 'INVESTIGATING'; sub = 'RobotOps is diagnosing the failure' }
   else if (inv?.phase === 'resolved') { tone = 'good'; title = 'SYSTEM RECOVERED'; sub = 'recovery independently verified' }
   else if (health && health.overall !== 'HEALTHY') { tone = 'bad'; title = 'FAULT DETECTED'; sub = 'ask RobotOps to diagnose the robot' }
+  else if (inv?.phase === 'error') { tone = 'warn'; title = 'INVESTIGATION STOPPED'; sub = `${inv.error ?? 'error'} - nothing was changed` }
+  else if (inv?.phase === 'inconclusive') { tone = 'warn'; title = 'INVESTIGATION STOPPED'; sub = 'insufficient evidence - RobotOps did not act on a guess' }
+  else if (inv?.phase === 'repair_failed') { tone = 'bad'; title = 'REPAIR NOT VERIFIED'; sub = 'stopped safely - manual attention needed' }
+  else if (inv?.phase === 'rejected') { tone = 'warn'; title = 'REPAIR REJECTED'; sub = 'no action was taken' }
+  else if (inv?.phase === 'healthy') { tone = 'good'; title = 'NO FAULT FOUND'; sub = 'all checks healthy' }
   else if (readiness.ready) { tone = 'good'; title = 'READY FOR DEMO'; sub = 'ROS healthy · model warm · all checks passed' }
   else { tone = 'warn'; title = 'NOT READY'; sub = readiness.reason ?? '' }
 

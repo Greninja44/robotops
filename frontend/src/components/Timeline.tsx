@@ -124,7 +124,11 @@ export function Timeline({ inv }: { inv: Investigation | null }) {
 
   if (!inv) return <div className="timeline empty">No investigation yet. Inject a fault, then ask RobotOps what is wrong.</div>
   const rows = buildRows(inv)
-  const alerts = inv.events.filter((e) => e.kind === 'model_timeout' || e.kind === 'diagnosis_rejected' || e.kind === 'warning' || e.kind === 'error')
+  const finalTimeout = inv.events.some((e) => e.kind === 'model_timeout' && e.final)
+  // a timeout that was retried successfully is reported as recovered; the raw "LLM unavailable" error is not repeated after a final-timeout alert
+  const alerts = inv.events.map((e, i) => ({ e, later: inv.events.slice(i + 1) }))
+    .filter(({ e }) => (e.kind === 'model_timeout' && !(finalTimeout && !e.final)) || e.kind === 'diagnosis_rejected' || e.kind === 'warning'
+      || (e.kind === 'error' && !(finalTimeout && String(e.message).startsWith('LLM unavailable'))))
   return (
     <div className="timeline">
       <div className="tl-query">“{inv.query}”</div>
@@ -143,17 +147,18 @@ export function Timeline({ inv }: { inv: Investigation | null }) {
           </li>
         ))}
       </ol>
-      {alerts.map((e, i) => <Alert key={i} ev={e} />)}
+      {alerts.map(({ e, later }, i) => <Alert key={i} ev={e} continued={later.some((x) => x.kind === 'llm_call')} />)}
       <div ref={end} />
     </div>
   )
 }
 
-function Alert({ ev }: { ev: InvEvent }) {
+function Alert({ ev, continued }: { ev: InvEvent; continued: boolean }) {
   switch (ev.kind) {
     case 'model_timeout':
-      return ev.final
-        ? <div className="alert bad"><b>MODEL RESPONSE TIMEOUT</b> — no response after {ev.timeout_s}s and one retry. Investigation stopped safely; nothing was changed.</div>
+      if (ev.final) return <div className="alert bad"><b>MODEL RESPONSE TIMEOUT</b> — no response after {ev.timeout_s}s and one retry. Investigation stopped safely; nothing was changed.</div>
+      return continued
+        ? <div className="alert warn"><b>MODEL RESPONSE TIMEOUT</b> — no response after {ev.timeout_s}s. Retried automatically and continued.</div>
         : <div className="alert warn"><b>MODEL RESPONSE TIMEOUT</b> — no response after {ev.timeout_s}s. Retrying investigation…</div>
     case 'diagnosis_rejected':
       return (

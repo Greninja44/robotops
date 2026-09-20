@@ -243,7 +243,7 @@ uv pip install -p .venv/bin/python fastapi 'uvicorn[standard]' httpx pydantic py
 
 Tests: `.venv/bin/python -m pytest tests -m "not ros"` (fast, ~1 s) and `.venv/bin/python -m pytest tests -m ros`
 (live-ROS tests against the demo robot, ~15 min; skipped automatically if `scripts/start_demo.sh` isn't running).
-Reliability harnesses (real dashboard, real clicks): `scripts/ui_hero_demo.py`, `scripts/ui_random_demo.py`.
+Reliability harnesses (real dashboard, real clicks): `scripts/ui_hero_demo.py`, `scripts/ui_random_demo.py`, `scripts/ui_timeout_check.py` (stalling fake model server: retry, safe stop).
 See `docs/ENVIRONMENT.md` for what was detected on the dev machine, `docs/DESIGN.md` for design decisions, `docs/PERFORMANCE.md` for latency.
 
 ## Limitations
