@@ -94,7 +94,7 @@ def get_subscribers(client, r, topic: str):
 @tool("measure_topic_rate")
 def measure_topic_rate(client, r, topic: str, duration: float = 3.0):
     topic = ros_name(topic, "topic")
-    duration = clamp(duration, 1.0, 4.0, 2.0)
+    duration = clamp(duration, 1.0, 2.5, 2.0)   # 2 s already yields 20 msgs at 10 Hz / 10 at 5 Hz (measured rates within 0.2 %)
     r.args.update(topic=topic, duration=duration)
     exp = manifest()["topics"].get(topic)
     s = client.sample_topic(topic, duration)

@@ -106,13 +106,13 @@ def decision_schema(tool_names: list[str] | None = None, actions: list[str] | No
     from backend.ros_tools import registry
     from backend.safety import policies
     return {"type": "object", "properties": {
-        "reason_summary": {"type": "string", "maxLength": 140},
+        "reason_summary": {"type": "string", "maxLength": 90},
         "action": {"enum": actions or ["tool", "diagnose"]},
         "tool": {"enum": tool_names or list(registry.READ_ONLY_TOOLS)},
         "arguments": {"type": "object", "properties": {
             "topic": {"type": "string"}, "node": {"type": "string"}, "duration": {"type": "number"},
             "parent_frame": {"type": "string"}, "child_frame": {"type": "string"}}},
-        "root_cause": {"type": "string", "maxLength": 200},
+        "root_cause": {"type": "string", "maxLength": 130},
         "faulty_component": {"enum": policies.components() + ["none"]},
         "evidence_ids": {"type": "array", "items": {"type": "string"}, "maxItems": 6},
         "recommended_action": {"enum": list(policies.ACTIONS) + ["none"]},

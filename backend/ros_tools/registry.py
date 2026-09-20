@@ -25,7 +25,7 @@ READ_ONLY_TOOLS = {
                       _TOPIC, ["topic"]),
     "measure_topic_rate": (topics.measure_topic_rate,
                            "Subscribe to a topic for a few seconds and measure its real message rate in Hz.",
-                           {**_TOPIC, "duration": {"type": "number", "description": "seconds, 1-4 (default 2)"}},
+                           {**_TOPIC, "duration": {"type": "number", "description": "seconds, 1-2.5 (default 2)"}},
                            ["topic"]),
     "check_tf": (tf.check_tf,
                  "Check that TF transforms are available and fresh. Omit both frames to check all expected transforms.",
