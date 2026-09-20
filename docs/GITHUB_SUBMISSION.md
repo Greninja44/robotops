@@ -40,4 +40,15 @@ gh repo edit Greninja44/robotops \
 
 ## Clean-clone check
 
-(recorded during the submission audit; see below)
+Performed on 2026-09-20 from a fresh `git clone` of the submission branch into an empty directory, using only the README's instructions:
+
+| Step | Result |
+|---|---|
+| `./scripts/setup.sh` | 15 s: prerequisites found, `.venv` created (sees system `rclpy`), Python and frontend dependencies installed, `qwen3:4b` found |
+| `./run_demo.sh` | 25 s from a cold start of the stack (Ollama and the model were already resident): model warm-up, robot, dashboard build, backend, preflight |
+| `./demo_preflight.sh` | `ROBOTOPS DEMO READY` (a warning that an unrelated CPU-heavy job was running on the machine was reported, as designed) |
+| `.venv/bin/python -m pytest tests -m "not ros"` | 142 passed |
+| `npx tsc -b`, `npm run lint`, `npm run build` (frontend) | all clean |
+| `./scripts/verify_demo.sh --full` | PASS, 23 checks, including a complete LLM investigation → approval → repair → independent verification |
+
+Not re-verified from a clean machine: installing ROS 2 Lyrical and Ollama themselves (prerequisites, documented in [SETUP.md](SETUP.md)), and the 19 live-ROS tests (unchanged code; run earlier on the same commit lineage).

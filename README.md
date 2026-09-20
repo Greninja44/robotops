@@ -86,30 +86,29 @@ Honest caveat: with a fixed sampling seed the same fault gives the same sequence
 ## Architecture
 
 ```mermaid
-flowchart LR
+flowchart TD
     UI["Dashboard<br/>graph · evidence · approve / reject"] <--> API["FastAPI backend"]
+    API --> LLM
 
-    subgraph LLMZone["Untrusted: proposes only"]
-        LLM["LLM (Ollama, qwen3:4b)<br/>picks tools · cites evidence · proposes a diagnosis"]
+    subgraph Untrusted["UNTRUSTED: the LLM proposes, it cannot execute"]
+        LLM["LLM (Ollama, qwen3:4b)<br/>chooses tools · cites evidence · proposes a diagnosis"]
     end
 
-    subgraph TB["Trusted, deterministic code: the LLM cannot bypass any of these"]
-        direction LR
-        Tools["Read-only ROS tools<br/>(rclpy)"] --> Ledger["Evidence ledger<br/>E1, E2, ..."]
+    subgraph Trusted["TRUSTED: deterministic code the LLM cannot bypass"]
+        Tools["Read-only ROS tools (rclpy)"] --> Ledger["Evidence ledger: E1, E2, ..."]
         Ledger --> Validator["Evidence validator"]
         Validator --> Gate["Human approval gate<br/>single-use, bound to action + target"]
         Gate --> Allow["Repair allowlist<br/>restart_component × 6 components"]
         Allow --> Verify["Independent verification<br/>24 live checks"]
     end
 
-    API --> LLM
-    LLM -->|"tool choice"| Tools
+    LLM -->|"picks one tool"| Tools
     LLM -->|"diagnosis citing E-IDs"| Validator
-    Tools <-->|DDS| Robot["ROS 2 system"]
-    Allow -->|restart only| Robot
-    Verify <-->|DDS| Robot
-    Validator --> Audit[("audit log")]
-    Gate --> Audit
+    Robot(["ROS 2 system (live DDS graph)"])
+    Tools -.->|observes| Robot
+    Allow -->|"restart only"| Robot
+    Verify -.->|re-measures| Robot
+    Gate -.-> Audit[("audit log")]
 ```
 
 **Trust boundaries.** The LLM can only (1) choose one of the *read-only* tools and (2) submit a diagnosis that cites evidence IDs. It has no execution tool, no shell and no
@@ -180,7 +179,7 @@ Everything below was measured on the demo robot in this repository, on one lapto
 | Hero diagnosis time (query → accepted diagnosis) | **10.6 s median** (7.5–11.3 s) | hero acceptance file |
 | Hero query → recovery verified | 16.4 s median (max 17.1 s); approval → verified 5.4 s median | hero acceptance file |
 | Clean-state benchmark, generic query *"Diagnose the robot."*, 5 faults × 3 | 15/15 correct, repaired, verified; diagnosis median 4.7 s, p95 9.1 s (n = 15) | [`benchmarks/results_20260920_052452.md`](benchmarks/results_20260920_052452.md) |
-| Automated tests | 124 fast + 19 live-ROS tests, all passing | `pytest tests` |
+| Automated tests | 142 fast tests (124 behaviour, 18 documentation checks) + 19 live-ROS tests, all passing | `pytest tests` |
 
 **Methodology.** *Hero* runs drive the real dashboard with real clicks (Start demo → inject Controller Failure → ask *"Robot stopped moving. Diagnose it."* → approve) and read the outcome from the UI and API.
 *Random* runs inject a hidden random fault and ask the generic query; correctness is scored against the supervisor's ground truth, which the agent never sees.
@@ -234,7 +233,7 @@ The same sequence, scripted: `.venv/bin/python scripts/ui_hero_demo.py --runs 1`
 ## Testing
 
 ```bash
-.venv/bin/python -m pytest tests -m "not ros"       # 124 fast tests (~10 s): validator, state machine, safety policy, approvals, no-fault-leak, timeouts, API
+.venv/bin/python -m pytest tests -m "not ros"       # 142 fast tests (~10 s): validator, state machine, safety policy, approvals, no-fault-leak, timeouts, API, docs links
 ./scripts/start_demo.sh
 .venv/bin/python -m pytest tests -m ros             # 19 live tests against the running ROS 2 demo robot (~4 min)
 ./scripts/verify_demo.sh --full                     # end-to-end: services, ROS health, tools, fault injection, full diagnose → repair → verify loop

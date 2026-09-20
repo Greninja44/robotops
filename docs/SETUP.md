@@ -83,7 +83,7 @@ Ports used (all `127.0.0.1`): 8000 backend + dashboard, 8766 demo supervisor, 11
 
 ```bash
 ./demo_preflight.sh                                   # environment + services + model + ROS graph
-.venv/bin/python -m pytest tests -m "not ros"         # 124 fast tests, about 10 seconds, no ROS or model needed
+.venv/bin/python -m pytest tests -m "not ros"         # 142 fast tests, about 10 seconds, no ROS or model needed
 ./scripts/start_demo.sh && .venv/bin/python -m pytest tests -m ros    # 19 live tests against the running demo robot (~4 min)
 ./scripts/verify_demo.sh --full                       # end-to-end check incl. a complete LLM diagnose -> approve -> verify loop
 (cd frontend && npx tsc -b && npm run lint && npm run build)

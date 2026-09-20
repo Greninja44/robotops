@@ -15,7 +15,7 @@ the judges' questions on its own. This page lists the questions, where the answe
 | Is the repair autonomous? | The investigation and diagnosis are autonomous; the *state change* is deliberately gated by a human approval (single-use, bound to action + target). | [Safety model](../README.md#safety-model) |
 | What are the safety mechanisms? | Read-only tools by default, evidence gate, approval gate, one-primitive allowlist, no shell, audit log, step/turn/timeout caps, independent 24-check verification. | [Safety model](../README.md#safety-model), `backend/safety/`, `tests/test_safety.py` |
 | Does it work? | A real, uncut recording; hero 10/10 consecutive runs; random hidden fault 15/15 on the five-fault set; 24/24 verification each. | README top, [Results](../README.md#results) |
-| How was it tested? | 124 fast tests and 19 live-ROS tests, a fault-identity-leak test plus prompt audit, soak runs that found and fixed real bugs (documented in [STATUS.md](STATUS.md)). | [Testing](../README.md#testing) |
+| How was it tested? | 142 fast tests (124 behaviour, 18 documentation checks) and 19 live-ROS tests, a fault-identity-leak test plus prompt audit, soak runs that found and fixed real bugs (documented in [STATUS.md](STATUS.md)). | [Testing](../README.md#testing) |
 | How do I run it? | `./scripts/setup.sh`, `./run_demo.sh`, open the dashboard; requirements listed first. | [Quick start](../README.md#quick-start), [SETUP.md](SETUP.md) |
 
 ## 2. Rubric mapping (with evidence, without unmeasured claims)
@@ -23,7 +23,7 @@ the judges' questions on its own. This page lists the questions, where the answe
 | Criterion | Evidence in the repository |
 |---|---|
 | Problem clarity | One concrete workflow (the manual `ros2 node/topic/hz`/TF/diagnostics investigation) and one concrete failure (a crashed controller that shows up as "the robot doesn't move"). |
-| Technical execution | Real rclpy tools, explicit state machine in which `REPAIRING → RESOLVED` is unrepresentable, single-use approvals, independent verification of the whole robot, 143 tests, measured benchmarks, a profiled 92 s → 10.6 s latency reduction with the cause identified (model prose, not ROS). |
+| Technical execution | Real rclpy tools, explicit state machine in which `REPAIRING → RESOLVED` is unrepresentable, single-use approvals, independent verification of the whole robot, 161 tests, measured benchmarks, a profiled 92 s → 10.6 s latency reduction with the cause identified (model prose, not ROS). |
 | Meaningful AI | The model makes the sequential decisions (next tool, hypothesis, diagnosis); everything that must be true (measurements, evidence, permissions, repair, verification) is code. The split is explicit in the README and enforced at trust boundaries. |
 | Innovation | Evidence-ID-grounded diagnosis validated in code; a repair path with no LLM execution capability; recovery defined by independent re-measurement rather than a command's exit code. |
 | UX | A single console: system health, live ROS graph, evidence-first investigation stream, approve/reject, verification summary; status bar states what is happening. |
