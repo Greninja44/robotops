@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+import os
 import time
 
 from backend.ros_tools import registry, repair
@@ -32,6 +33,7 @@ MAX_REJECTED_DIAGNOSES = 5
 MAX_NUDGES = 2
 APPROVAL_TIMEOUT_S = 15 * 60
 MAX_CALLS_PER_TURN = 2
+AUDIT_PROMPTS = os.environ.get("ROBOTOPS_AUDIT_PROMPTS") == "1"   # record the exact model inputs (used to audit that no fault identity leaks)
 MIN_OWN_CHECKS = 2       # process rule: the model must run >= 2 checks of its own (beyond the automatic baseline) before concluding
 
 
@@ -159,6 +161,7 @@ class Agent:
         own_checks = 0
         block_diagnose = False      # set after a rejected diagnosis: the next turn must be a new check, not a resubmission
         repeat_blocked: set[str] = set()   # tools the model just tried to repeat verbatim: unavailable for the next turn
+        last_tool: str | None = None       # the same tool is not offered twice in a row (saves a wasted model call)
         if inv.round == 1:  # the baseline get_ros_health was already run automatically; don't spend a step repeating it
             seen["get_ros_health" + json.dumps({}, sort_keys=True)] = [e.id for e in inv.ledger.items.values() if e.step == 1]
         llm_turns = 0
@@ -171,9 +174,11 @@ class Agent:
                 forced = True
                 inv.messages.append({"role": "user", "content": prompts.FORCE_DIAGNOSIS})
                 inv.emit("note", text=f"Step budget ({self.max_steps}) reached - asking for a diagnosis")
+            if AUDIT_PROMPTS:
+                self._log(inv, "llm_request", messages=inv.messages)
             allow = forced or (own_checks >= MIN_OWN_CHECKS and not block_diagnose)
             reply = await self.chat(inv.messages, self._selectable_tools(
-                seen, allow_diagnose=allow, only_diagnose=forced, exclude=repeat_blocked))
+                seen, allow_diagnose=allow, only_diagnose=forced, exclude=repeat_blocked | ({last_tool} if last_tool else set())))
             inv.llm_calls += 1
             inv.llm_seconds += reply.seconds
             inv.emit("llm_call", n=inv.llm_calls, tools=[tc.name for tc in reply.tool_calls], **reply.metrics)
@@ -242,6 +247,7 @@ class Agent:
                 own_checks += 1
                 block_diagnose = False
                 repeat_blocked = set()
+                last_tool = tc.name
                 seen[key] = [e.id for e in evidence]
                 inv.messages.append({"role": "tool", "tool_name": tc.name,
                                      "content": format_for_llm(result, evidence, ledger=inv.ledger)})

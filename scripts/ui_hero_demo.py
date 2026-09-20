@@ -91,6 +91,10 @@ def one_run(pg, n: int, shots: Path | None) -> dict:
         rec["stage"] = "check healthy"
         health = httpx.get(f"{URL}/api/health", timeout=5).json()
         rec["health_after"] = health["overall"]
+        if health["overall"] != "HEALTHY":     # keep the evidence: which component, and does it clear on its own?
+            rec["health_detail"] = {k: f"{v['state']}: {v['detail']}" for k, v in health["components"].items() if v["state"] != "HEALTHY"}
+            time.sleep(4)
+            rec["health_4s_later"] = httpx.get(f"{URL}/api/health", timeout=5).json()["overall"]
         inv = httpx.get(f"{URL}/api/investigations/current", timeout=5).json()
         rec.update(phase=inv["phase"], model_calls=inv["llm_calls"], tool_calls=inv["tool_calls"],
                    diagnosis=(inv["diagnosis"] or {}).get("faulty_component"),

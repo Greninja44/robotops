@@ -1,0 +1,757 @@
+{
+  "meta": {
+    "started": "2026-09-20 05:18:57",
+    "model": "qwen3:4b",
+    "protocol": "json",
+    "num_ctx": 6144,
+    "platform": "Linux 6.18.33.2-microsoft-standard-WSL2, ROS 2 lyrical",
+    "query": "Diagnose the robot.",
+    "machine": {
+      "warnings": [
+        "Background processes: pid 108703 169% CPU .venv/bin/python -m evaluation.closed_loop --policy; pid 108704 166% CPU .venv/bin/python -m evaluation.closed_loop --policy"
+      ],
+      "snapshot": {
+        "loadavg_1m": 4.85,
+        "cpus": 12,
+        "mem_available_mb": 6242,
+        "gpu_util_pct": 13,
+        "vram_used_mb": 4705
+      },
+      "checks": [
+        {
+          "id": "ros_env",
+          "label": "ROS environment",
+          "status": "pass",
+          "detail": "ROS lyrical, rmw_cyclonedds_cpp, domain 73"
+        },
+        {
+          "id": "dds_config",
+          "label": "CycloneDDS config (WSL2 fragmentation)",
+          "status": "pass",
+          "detail": "/home/batman/robotops/config/cyclonedds.xml"
+        },
+        {
+          "id": "ros_client",
+          "label": "ROS 2 client",
+          "status": "pass",
+          "detail": "rclpy observer running"
+        },
+        {
+          "id": "discovery",
+          "label": "DDS discovery / expected nodes",
+          "status": "pass",
+          "detail": "all 6 nodes visible"
+        },
+        {
+          "id": "topics",
+          "label": "Expected topics (rates + subscribers)",
+          "status": "pass",
+          "detail": "9/9 ok"
+        },
+        {
+          "id": "tf",
+          "label": "TF transforms",
+          "status": "pass",
+          "detail": "2/2 ok"
+        },
+        {
+          "id": "motion",
+          "label": "Robot moving (odometry)",
+          "status": "pass",
+          "detail": "1/1 ok"
+        },
+        {
+          "id": "diagnostics",
+          "label": "Component diagnostics",
+          "status": "pass",
+          "detail": "6/6 ok"
+        },
+        {
+          "id": "verification",
+          "label": "Verification subsystem (24 live checks)",
+          "status": "pass",
+          "detail": "24/24 pass on the healthy robot"
+        },
+        {
+          "id": "ollama",
+          "label": "Ollama",
+          "status": "pass",
+          "detail": "reachable at http://127.0.0.1:11434"
+        },
+        {
+          "id": "warmup",
+          "label": "Model warm-up generation",
+          "status": "pass",
+          "detail": "answered in 1.0 s"
+        },
+        {
+          "id": "model",
+          "label": "Model qwen3:4b",
+          "status": "pass",
+          "detail": "WARM, 100% GPU, context 6144"
+        },
+        {
+          "id": "gpu",
+          "label": "GPU / VRAM",
+          "status": "pass",
+          "detail": "NVIDIA GeForce RTX 4050 Laptop GPU: 4705/6141 MiB used, 94% util"
+        },
+        {
+          "id": "load",
+          "label": "System load",
+          "status": "pass",
+          "detail": "load 4.8 on 12 CPUs, 6239 MB RAM free, 0 MB swap used"
+        },
+        {
+          "id": "background",
+          "label": "Background processes",
+          "status": "warn",
+          "detail": "pid 108703 169% CPU .venv/bin/python -m evaluation.closed_loop --policy; pid 108704 166% CPU .venv/bin/python -m evaluation.closed_loop --policy"
+        },
+        {
+          "id": "injector",
+          "label": "Fault injector",
+          "status": "pass",
+          "detail": "5 fault types available"
+        },
+        {
+          "id": "repair",
+          "label": "Repair service (allowlisted)",
+          "status": "pass",
+          "detail": "supervisor reachable, 6 allowlisted components (6/6 demo processes running)"
+        }
+      ]
+    }
+  },
+  "summary": {
+    "runs": 15,
+    "valid_runs": 15,
+    "invalid_runs_baseline_unhealthy": 0,
+    "diagnosis_accuracy": 1.0,
+    "inconclusive_rate": 0.0,
+    "error_rate": 0.0,
+    "timeout_rate": 0.0,
+    "repair_success_rate": 1.0,
+    "verification_success_rate": 1.0,
+    "median_diagnosis_time_s": 4.7,
+    "p95_diagnosis_time_s": 9.1,
+    "max_diagnosis_time_s": 9.1,
+    "median_total_time_s": 10.0,
+    "median_tool_calls": 3,
+    "median_model_calls": 3
+  },
+  "results": [
+    {
+      "fault": "controller_crash",
+      "expected_component": "base_controller",
+      "host": {
+        "loadavg_1m": 4.85,
+        "cpus": 12,
+        "mem_available_mb": 6240,
+        "gpu_util_pct": 13,
+        "vram_used_mb": 4705
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "base_controller",
+      "root_cause": "The /base_controller node is missing, which is required for the /wheel_states topic to be published and for the robot to function",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E2 (get_ros_health): 1 expected node(s) missing: /base_controller",
+        "E5 (list_topics): Expected topic /wheel_states has no publishers"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 4.5,
+      "total_time_s": 9.5,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "list_nodes",
+        "list_topics"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 4.4,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "e62f7ae1ef",
+      "repeat": 1
+    },
+    {
+      "fault": "lidar_failure",
+      "expected_component": "lidar_driver",
+      "host": {
+        "loadavg_1m": 5.7,
+        "cpus": 12,
+        "mem_available_mb": 6223,
+        "gpu_util_pct": 4,
+        "vram_used_mb": 4710
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "lidar_driver",
+      "root_cause": "lidar_driver stalled due to serial read timeout on /dev/ttyUSB0",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): lidar_driver reports ERROR: No data from device for 5.3s (serial read timeout on /dev/ttyUSB0)",
+        "E8 (measure_topic_rate): /scan: 0 messages received in a 2 s window (not publishing)"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 8.7,
+      "total_time_s": 14.1,
+      "tool_calls": 4,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics",
+        "check_tf",
+        "measure_topic_rate"
+      ],
+      "llm_calls": 4,
+      "llm_seconds": 6.1,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "8919879eba",
+      "repeat": 1
+    },
+    {
+      "fault": "tf_failure",
+      "expected_component": "tf_broadcaster",
+      "host": {
+        "loadavg_1m": 5.18,
+        "cpus": 12,
+        "mem_available_mb": 6629,
+        "gpu_util_pct": 7,
+        "vram_used_mb": 4706
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "tf_broadcaster",
+      "root_cause": "TF transform base_link->laser is stale (7.8s old) due to tf_broadcaster stopping publication",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): obstacle_monitor reports ERROR: Cannot transform base_link<-laser: transform is 6.2s old - obstacle detection disabled",
+        "E5 (get_recent_diagnostics): Diagnostics from tf_broadcaster are STALE: no update for 6s (last message: 'Broadcasting base_link->laser')",
+        "E7 (check_tf): Transform base_link->laser is STALE: last update 7.8s ago (broadcaster stopped publishing)"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 4.9,
+      "total_time_s": 10.3,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics",
+        "check_tf"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 4.9,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "ae5c52ce86",
+      "repeat": 1
+    },
+    {
+      "fault": "topic_misconfig",
+      "expected_component": "base_controller",
+      "host": {
+        "loadavg_1m": 5.1,
+        "cpus": 12,
+        "mem_available_mb": 6209,
+        "gpu_util_pct": 4,
+        "vram_used_mb": 4709
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "base_controller",
+      "root_cause": "base_controller is configured to subscribe to /cmd_vel_nav instead of the expected /cmd_vel",
+      "evidence_score": 0.85,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): base_controller reports WARN: No velocity commands received yet on /cmd_vel_nav",
+        "E7 (inspect_node): Node /base_controller does not subscribe to /cmd_vel although the robot manifest expects it to",
+        "E8 (inspect_node): Node /base_controller subscribes to /cmd_vel_nav, which is not a topic in the robot manifest",
+        "E9 (list_topics): Topic /cmd_vel_nav is not in the robot manifest (0 publishers, 1 subscribers)"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 7.0,
+      "total_time_s": 12.5,
+      "tool_calls": 5,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics",
+        "inspect_node",
+        "list_topics",
+        "list_nodes"
+      ],
+      "llm_calls": 5,
+      "llm_seconds": 6.9,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "1e548216a4",
+      "repeat": 1
+    },
+    {
+      "fault": "node_crash",
+      "expected_component": "obstacle_monitor",
+      "host": {
+        "loadavg_1m": 5.52,
+        "cpus": 12,
+        "mem_available_mb": 6190,
+        "gpu_util_pct": 10,
+        "vram_used_mb": 4723
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "obstacle_monitor",
+      "root_cause": "Missing /obstacle_monitor node leads to no /obstacle_distance topic, causing diagnostics to be stale",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E2 (get_ros_health): 1 expected node(s) missing: /obstacle_monitor",
+        "E5 (list_topics): Expected topic /obstacle_distance does not exist in the ROS graph (no publishers or subscribers)"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 4.5,
+      "total_time_s": 9.5,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "list_nodes",
+        "list_topics"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 4.4,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "a0d39fec6e",
+      "repeat": 1
+    },
+    {
+      "fault": "controller_crash",
+      "expected_component": "base_controller",
+      "host": {
+        "loadavg_1m": 5.97,
+        "cpus": 12,
+        "mem_available_mb": 6146,
+        "gpu_util_pct": 40,
+        "vram_used_mb": 4719
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "base_controller",
+      "root_cause": "The /base_controller node is missing, which is required for the /wheel_states topic to be published (as it consumes /cmd_vel) and",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E2 (get_ros_health): 1 expected node(s) missing: /base_controller",
+        "E5 (list_topics): Expected topic /wheel_states has no publishers"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 4.4,
+      "total_time_s": 9.4,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "list_nodes",
+        "list_topics"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 4.3,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "ca66fb4027",
+      "repeat": 2
+    },
+    {
+      "fault": "lidar_failure",
+      "expected_component": "lidar_driver",
+      "host": {
+        "loadavg_1m": 5.99,
+        "cpus": 12,
+        "mem_available_mb": 6133,
+        "gpu_util_pct": 4,
+        "vram_used_mb": 4723
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "lidar_driver",
+      "root_cause": "lidar_driver stalled with serial read timeout (6.0s) leading to no /scan data",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): lidar_driver reports ERROR: No data from device for 6.0s (serial read timeout on /dev/ttyUSB0)",
+        "E8 (measure_topic_rate): /scan: 0 messages received in a 2 s window (not publishing)"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 9.1,
+      "total_time_s": 14.5,
+      "tool_calls": 4,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics",
+        "check_tf",
+        "measure_topic_rate"
+      ],
+      "llm_calls": 4,
+      "llm_seconds": 6.4,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "89c21b51f2",
+      "repeat": 2
+    },
+    {
+      "fault": "tf_failure",
+      "expected_component": "tf_broadcaster",
+      "host": {
+        "loadavg_1m": 5.61,
+        "cpus": 12,
+        "mem_available_mb": 6598,
+        "gpu_util_pct": 6,
+        "vram_used_mb": 4723
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "tf_broadcaster",
+      "root_cause": "TF transform base_link->laser is stale (7.6s old) due to tf_broadcaster stopping publication",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): obstacle_monitor reports ERROR: Cannot transform base_link<-laser: transform is 5.8s old - obstacle detection disabled",
+        "E5 (get_recent_diagnostics): Diagnostics from tf_broadcaster are STALE: no update for 6s (last message: 'Broadcasting base_link->laser')",
+        "E7 (check_tf): Transform base_link->laser is STALE: last update 7.6s ago (broadcaster stopped publishing)"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 4.7,
+      "total_time_s": 10.1,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics",
+        "check_tf"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 4.7,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "233b1b9bd9",
+      "repeat": 2
+    },
+    {
+      "fault": "topic_misconfig",
+      "expected_component": "base_controller",
+      "host": {
+        "loadavg_1m": 5.5,
+        "cpus": 12,
+        "mem_available_mb": 6161,
+        "gpu_util_pct": 72,
+        "vram_used_mb": 4723
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "base_controller",
+      "root_cause": "base_controller is configured to use /cmd_vel_nav instead of the expected /cmd_vel topic",
+      "evidence_score": 0.85,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): base_controller reports WARN: No velocity commands received yet on /cmd_vel_nav",
+        "E7 (inspect_node): Node /base_controller does not subscribe to /cmd_vel although the robot manifest expects it to",
+        "E8 (inspect_node): Node /base_controller subscribes to /cmd_vel_nav, which is not a topic in the robot manifest"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 4.6,
+      "total_time_s": 10.0,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics",
+        "inspect_node"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 4.5,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "cbd946d1c7",
+      "repeat": 2
+    },
+    {
+      "fault": "node_crash",
+      "expected_component": "obstacle_monitor",
+      "host": {
+        "loadavg_1m": 6.74,
+        "cpus": 12,
+        "mem_available_mb": 6235,
+        "gpu_util_pct": 14,
+        "vram_used_mb": 4723
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "obstacle_monitor",
+      "root_cause": "Missing /obstacle_monitor node leads to no /obstacle_distance topic, causing diagnostics to be stale",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E2 (get_ros_health): 1 expected node(s) missing: /obstacle_monitor",
+        "E5 (list_topics): Expected topic /obstacle_distance does not exist in the ROS graph (no publishers or subscribers)"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 4.7,
+      "total_time_s": 9.7,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "list_nodes",
+        "list_topics"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 4.6,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "245138b737",
+      "repeat": 2
+    },
+    {
+      "fault": "controller_crash",
+      "expected_component": "base_controller",
+      "host": {
+        "loadavg_1m": 6.97,
+        "cpus": 12,
+        "mem_available_mb": 6213,
+        "gpu_util_pct": 10,
+        "vram_used_mb": 4725
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "base_controller",
+      "root_cause": "The /base_controller node is missing, which is required for the /wheel_states topic to be published (as it consumes /cmd_vel) and",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E2 (get_ros_health): 1 expected node(s) missing: /base_controller",
+        "E5 (list_topics): Expected topic /wheel_states has no publishers"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 4.4,
+      "total_time_s": 9.5,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "list_nodes",
+        "list_topics"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 4.4,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "384e920691",
+      "repeat": 3
+    },
+    {
+      "fault": "lidar_failure",
+      "expected_component": "lidar_driver",
+      "host": {
+        "loadavg_1m": 6.46,
+        "cpus": 12,
+        "mem_available_mb": 6468,
+        "gpu_util_pct": 41,
+        "vram_used_mb": 4723
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "lidar_driver",
+      "root_cause": "lidar_driver stalled due to serial read timeout on /dev/ttyUSB0",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): lidar_driver reports ERROR: No data from device for 5.7s (serial read timeout on /dev/ttyUSB0)",
+        "E8 (measure_topic_rate): /scan: 0 messages received in a 2 s window (not publishing)"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 8.6,
+      "total_time_s": 14.0,
+      "tool_calls": 4,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics",
+        "check_tf",
+        "measure_topic_rate"
+      ],
+      "llm_calls": 4,
+      "llm_seconds": 6.0,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "41688731a7",
+      "repeat": 3
+    },
+    {
+      "fault": "tf_failure",
+      "expected_component": "tf_broadcaster",
+      "host": {
+        "loadavg_1m": 6.63,
+        "cpus": 12,
+        "mem_available_mb": 6051,
+        "gpu_util_pct": 72,
+        "vram_used_mb": 4732
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "tf_broadcaster",
+      "root_cause": "TF transform base_link->laser is stale (7.6s old), preventing obstacle_monitor from getting valid transforms",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): obstacle_monitor reports ERROR: Cannot transform base_link<-laser: transform is 5.6s old - obstacle detection disabled",
+        "E5 (get_recent_diagnostics): Diagnostics from tf_broadcaster are STALE: no update for 7s (last message: 'Broadcasting base_link->laser')",
+        "E7 (check_tf): Transform base_link->laser is STALE: last update 7.6s ago (broadcaster stopped publishing)"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 4.7,
+      "total_time_s": 10.1,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics",
+        "check_tf"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 4.7,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "fb658772a8",
+      "repeat": 3
+    },
+    {
+      "fault": "topic_misconfig",
+      "expected_component": "base_controller",
+      "host": {
+        "loadavg_1m": 6.37,
+        "cpus": 12,
+        "mem_available_mb": 6707,
+        "gpu_util_pct": 0,
+        "vram_used_mb": 4728
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "base_controller",
+      "root_cause": "base_controller is configured to use /cmd_vel_nav instead of /cmd_vel",
+      "evidence_score": 0.85,
+      "cited_evidence": [
+        "E4 (get_recent_diagnostics): base_controller reports WARN: No velocity commands received yet on /cmd_vel_nav",
+        "E7 (inspect_node): Node /base_controller does not subscribe to /cmd_vel although the robot manifest expects it to",
+        "E8 (inspect_node): Node /base_controller subscribes to /cmd_vel_nav, which is not a topic in the robot manifest"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 4.3,
+      "total_time_s": 9.8,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "get_recent_diagnostics",
+        "inspect_node"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 4.3,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "d7cce3463a",
+      "repeat": 3
+    },
+    {
+      "fault": "node_crash",
+      "expected_component": "obstacle_monitor",
+      "host": {
+        "loadavg_1m": 6.4,
+        "cpus": 12,
+        "mem_available_mb": 6193,
+        "gpu_util_pct": 0,
+        "vram_used_mb": 4724
+      },
+      "baseline_healthy": true,
+      "final_phase": "resolved",
+      "diagnosed_component": "obstacle_monitor",
+      "root_cause": "Missing /obstacle_monitor node leads to no /obstacle_distance topic, causing diagnostics to be stale",
+      "evidence_score": 0.7,
+      "cited_evidence": [
+        "E2 (get_ros_health): 1 expected node(s) missing: /obstacle_monitor",
+        "E5 (list_topics): Expected topic /obstacle_distance does not exist in the ROS graph (no publishers or subscribers)"
+      ],
+      "diagnosis_success": true,
+      "inconclusive": false,
+      "repair_executed": true,
+      "verification_success": true,
+      "rounds": 1,
+      "diagnosis_time_s": 5.0,
+      "total_time_s": 10.0,
+      "tool_calls": 3,
+      "tools_used": [
+        "get_ros_health",
+        "list_nodes",
+        "list_topics"
+      ],
+      "llm_calls": 3,
+      "llm_seconds": 4.9,
+      "model_timeouts": 0,
+      "rejected_diagnoses": 0,
+      "error": null,
+      "investigation_id": "5433e13de6",
+      "repeat": 3
+    }
+  ]
+}

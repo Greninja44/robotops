@@ -1,41 +1,40 @@
-# Status (updated 2026-09-19)
+# Status (updated 2026-09-20, hackathon hardening)
 
-## WORKING (verified by running it, not just by reading code)
-- **Full loop on the real ROS 2 system**: inject → real component failure → agent investigates with LLM-chosen tools →
-  evidence-validated diagnosis → proposal → human approval → allowlisted repair → independent verification → HEALTHY.
-  Exercised through the CLI, the REST API (random hidden fault, wrong/duplicate approvals refused) and the test-suite.
-- ROS tool layer (11 read-only tools via rclpy: graph, nodes, topics, publishers/subscribers, measured rates, TF freshness,
-  parameters, /diagnostics, /rosout, process status) — structured results, input sanitising, timeouts.
-- Evidence ledger + diagnosis validator (cited IDs must exist, ≥2 pieces, ≥1 anomaly about the target, allowlisted action);
-  heuristic evidence score derived in code with a visible breakdown.
-- Approval registry (one-shot, bound to exact action+target), repair allowlist, JSONL audit log (`logs/audit.jsonl`).
-- Post-repair verification (24 checks: nodes, subscriptions, topic rates, TF freshness, diagnostics, odometry actually moving).
-- 5 fault types + random (identity hidden from the agent and from the API response).
-- FastAPI + WebSocket backend; React/Vite/React Flow dashboard (health bar, live graph, timeline, root cause, approve/reject,
-  verification, fault panel, query box); auto-reconnect on backend restart.
-- `run_demo.sh`, `stop_demo.sh`, `verify_demo.sh [--full]`, `scripts/{start,stop,reset}_demo.sh`.
-- Benchmark runner (`benchmarks/run_benchmark.py`) — see `benchmarks/results*.md` for measured numbers.
+## WORKING (verified by running it)
+- Full loop on the real ROS 2 system: inject -> real failure -> LLM-chosen read-only tools -> evidence-validated diagnosis -> human approval ->
+  allowlisted restart -> independent 24-check verification -> HEALTHY.
+- **Latency**: warm diagnosis 92.0 s -> 4-11 s (profile in `docs/PERFORMANCE.md`; cause was ~3,000 tokens of model prose per diagnosis).
+- **Hero scenario through the real dashboard**: 10/10 consecutive runs, diagnosis median 10.7 s, ask -> recovered median 16.3 s (`benchmarks/hero/`).
+- **Random faults through the real dashboard**: 15/15 correct, repaired and verified, 0 inconclusive, 0 timeouts, fault identity audited absent from all
+  recorded model inputs (`benchmarks/random/`).
+- **Benchmark** (15 runs, 5 faults x 3): 100 % accuracy / repair / verification, median 4.7 s, p95 9.1 s (`benchmarks/results_20260920_052452.*`).
+- Readiness: `./run_demo.sh` (cold -> READY in ~42 s, blocking model warm-up), `./demo_preflight.sh` (DEMO READY / NOT READY, exit code), dashboard READY FOR DEMO
+  banner + chips + START DEMO gate; MODEL RESPONSE TIMEOUT / retry shown in the timeline.
+- Dashboard: numbered stage timeline with live values, incident summary card (measured values only), affected-region highlight, RECOVERY VERIFIED badge.
+- Tests: 124 fast (`pytest -m "not ros"`), 19 live-ROS (`-m ros`, all passing on the final code, 3 min 54 s). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
+
+## RELIABILITY INCIDENTS FOUND BY SOAK TESTING (all with evidence in the repo)
+- **ROS client executor crash** (found 06:21): the backend's rclpy executor died with `cannot use Destroyable because destruction was requested`
+  (a race between `sample_topic` destroying subscriptions and the executor); every health card went UNKNOWN and START DEMO stayed disabled until a restart.
+  Fixed: the spin loop now survives and counts such races (`RosClient.spin_errors`), and reports the client broken only after ~4 s of continuous errors.
+  My first version of that fix had its own bug (the loop exited because it was tied to a flag set after the thread started, so the client saw the graph but received no data);
+  found by a 40-iteration stress test, fixed, and a regression test now reproduces the real start ordering. The race itself did not re-trigger in the stress test, so the
+  survival path is covered by unit tests, not a live reproduction.
+- **One unexplained failure**: in one hero run the dashboard's health read FAILED right after RECOVERY VERIFIED (24/24 checks, correct diagnosis). It did not reproduce in 24
+  further recoveries (20 UI hero runs + 4 API probes). The dashboard health log (`logs/backend.log`, `[health ...]` lines) and the hero harness now record the component details if it
+  recurs. Across ~36 UI hero runs on the final code: 35 fully clean, 1 with that anomaly. The monitor's rate estimator was also made more responsive after restarts.
 
 ## PARTIALLY WORKING / KNOWN LIMITS
-- **Model quality**: `qwen3:4b` is the only installed model that completes investigations. `llama3.2:3b` never submitted a
-  valid diagnosis in the benchmark (5/5 inconclusive — the safety gate held and no repair was attempted).
-  See benchmark files for both.
-- **Test suite**: `pytest -m "not ros"` = 83 tests, ~1 s. `pytest -m ros` = 19 live-ROS tests (~15 min); all 18 integration
-  tests passed (16 in the full run, 2 re-run after fixing a bug in the tests themselves) and the live API test passed.
-- **Latency**: ~7–50 s per LLM step on the 6 GB laptop GPU shared with Windows; a full diagnosis takes ~45–170 s.
-- **DDS on WSL2**: cross-process messages >1.4 KB are dropped unless Cyclone fragments below the MTU
-  (`config/cyclonedds.xml`, applied automatically by `scripts/env.sh`). Under heavy host load or a Wi-Fi flap the
-  observer can transiently lose discovery (seen once during a benchmark run: all nodes vanished from the graph mid-investigation).
-  Loopback-only Cyclone configs were tried and did not work in this WSL setup. A 100 s steady-state test with a 3 s and a
-  10 s lease showed no dropouts either way, so the 3 s lease was kept.
-- Repairs: only `restart_component` on the 6 demo components (by design). `topic_misconfig` is fixed by restarting the
-  controller with its canonical configuration, not by a live parameter change.
+- Small model (qwen3:4b): can hallucinate a cause; the validator rejects it (no wrong repair) but a run can end inconclusive. Process rules are enforced in code
+  because the model otherwise loops. It opens with `get_recent_diagnostics` in nearly every run; sequences are repeatable for a given fault (fixed seed).
+- The machine is shared: an unrelated `tinyrdt` evaluation job (2 processes, ~330 % CPU, part of the GPU) ran during the benchmark and most tests. The preflight and the
+  benchmark report it; it is never killed. Numbers are therefore pessimistic if anything.
+- DDS on WSL2 needs `config/cyclonedds.xml`; discovery can hiccup under heavy load.
+- Only `restart_component` is a repair primitive.
 
 ## BROKEN
-- Nothing known to be broken in the code. Benchmark reliability on a busy machine is **not** good: see the README benchmark
-  section (10 runs: 5 completed diagnoses, all correct; 3 invalid baselines and 3 model timeouts, cause not established).
+- Nothing known.
 
 ## NEXT
-- Second repair primitive (parameter set with allowlisted keys) so `topic_misconfig` can be repaired without a restart.
-- Run the benchmark with more repeats and additional models once available.
-- Gazebo/MuJoCo visualisation (P3, intentionally not started).
+- Record a real backup video (`docs/RECORDING.md`).
+- Parameter-set repair primitive (allowlisted keys); more models when available.

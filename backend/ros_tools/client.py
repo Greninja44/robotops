@@ -43,6 +43,9 @@ class RosClient:
         self._error: str | None = None
         self.diagnostics: dict[str, DiagEntry] = {}
         self.rosout: deque = deque(maxlen=500)
+        self._stop_spin = threading.Event()  # set by shutdown(); NOT tied to _started (which is set after the thread starts)
+        self.spin_errors = 0                 # benign executor races survived (see _spin)
+        self.last_spin_error: str | None = None
 
     # ---------------------------------------------------------------- lifecycle
     def start(self) -> None:
@@ -67,6 +70,7 @@ class RosClient:
                 rosout_qos = QoSProfile(depth=100, durability=DurabilityPolicy.TRANSIENT_LOCAL,
                                         reliability=ReliabilityPolicy.RELIABLE)
                 self.node.create_subscription(Log, "/rosout", self._on_log, rosout_qos)
+                self._stop_spin.clear()
                 self._executor = MultiThreadedExecutor(num_threads=4, context=self._context)
                 self._executor.add_node(self.node)
                 self._thread = threading.Thread(target=self._spin, daemon=True, name="ros-spin")
@@ -78,16 +82,29 @@ class RosClient:
                 raise RosUnavailable(self._error) from e
 
     def _spin(self):
-        try:
-            self._executor.spin()
-        except Exception as e:  # noqa: BLE001
-            self._error = f"executor stopped: {e}"
+        """Spin until shutdown. rclpy raises ("cannot use Destroyable because destruction was requested") when a subscription
+        that sample_topic() just destroyed is still in the executor's wait set; that is a benign race, so it is counted and the
+        loop continues. The client is only declared broken if errors are continuous (a truly dead executor)."""
+        consecutive = 0
+        while not self._stop_spin.is_set():
+            try:
+                self._executor.spin_once(timeout_sec=0.1)
+                consecutive = 0
+            except Exception as e:  # noqa: BLE001
+                consecutive += 1
+                self.spin_errors += 1
+                self.last_spin_error = f"{type(e).__name__}: {e}"
+                if consecutive >= 200:      # ~4 s of nothing but errors: not a race, the executor is gone
+                    self._error = f"executor stopped: {e}"
+                    return
+                time.sleep(0.02)
 
     def shutdown(self):
         with self._lock:
             if not self._started:
                 return
             self._started = False
+            self._stop_spin.set()
             try:
                 self._executor.shutdown(timeout_sec=1.0)
                 self.node.destroy_node()

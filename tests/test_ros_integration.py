@@ -245,7 +245,8 @@ async def test_rejected_repair_leaves_robot_untouched(robot, tmp_audit):
         ids = [e.id for e in holder["inv"].ledger.anomalies() if "/base_controller" in e.subjects][:3]
         return ("submit_diagnosis", {"root_cause": "crash", "faulty_component": "base_controller",
                                      "evidence_ids": ids, "recommended_action": "restart_component"})
-    agent = graph_mod.Agent(robot, approvals, tmp_audit, chat=Script([("list_nodes", {}), submit]))
+    agent = graph_mod.Agent(robot, approvals, tmp_audit,
+                            chat=Script([("list_nodes", {}), ("inspect_topic", {"topic": "/cmd_vel"}), submit]))   # 2 own checks before a diagnosis is admitted
     inv = Investigation("q", listener=lambda m: None)
     holder["inv"] = inv
     task = asyncio.create_task(agent.run(inv))

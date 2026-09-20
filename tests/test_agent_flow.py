@@ -419,6 +419,21 @@ async def test_a_verbatim_repeat_withholds_that_tool_and_does_not_burn_the_budge
     agent.chat = chat
     inv = Investigation("q")
     await agent.run(inv)
-    assert "inspect_topic" in offers[1]            # offered again (with other args it would be legitimate)
-    assert "inspect_topic" not in offers[2]        # ... but withheld right after the verbatim repeat
+    assert "inspect_topic" not in offers[1]        # the same tool is not offered twice in a row
+    assert "inspect_topic" not in offers[2]        # ... and stays withheld right after a verbatim repeat
     assert inv.phase == Phase.RESOLVED and inv.tool_calls == 3          # baseline + 2 real checks; budget of 3 not exhausted
+
+
+async def test_the_same_tool_is_not_offered_twice_in_a_row_but_is_again_afterwards(env):
+    offers = []
+    script = [call("inspect_topic", topic="/cmd_vel"), call("get_component_status"),
+              call("inspect_topic", topic="/scan"), diag(ids=("E2", "E4"))]
+
+    async def chat(messages, tools):
+        offers.append({t["function"]["name"] for t in tools})
+        return script[len(offers) - 1]
+    agent, _ = make_agent(env, [], auto_approve=True)
+    agent.chat = chat
+    inv = Investigation("q")
+    await agent.run(inv)
+    assert "inspect_topic" not in offers[1] and "inspect_topic" in offers[2]
