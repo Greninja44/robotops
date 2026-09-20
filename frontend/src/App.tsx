@@ -1,19 +1,18 @@
 import { useMemo } from 'react'
-import { api, useRobotOps, type Investigation } from './api'
+import { api, useRobotOps, type Investigation as Inv } from './api'
 import { GraphPanel, type Marks } from './components/GraphPanel'
-import { Timeline } from './components/Timeline'
-import { ReadyBanner } from './components/Ready'
-import { Incident } from './components/Incident'
-import { AskPanel, FaultPanel, HealthBar, RepairPanel, RootCause, StatusPills, VerificationPanel } from './components/Panels'
+import { Header, StatusBar } from './components/Header'
+import { SystemPanel } from './components/SystemPanel'
+import { Investigation } from './components/Investigation'
+import { Composer } from './components/Composer'
+import { TERMINAL, deriveState } from './lib/uiState'
 
-const TERMINAL = ['resolved', 'repair_failed', 'rejected', 'inconclusive', 'healthy', 'diagnosed', 'error']
-
-function marksFor(inv: Investigation | null): Marks {
+/** Which graph elements to emphasise: what the agent is inspecting now, what the diagnosis cites, and the confirmed root cause. */
+function marksFor(inv: Inv | null): Marks {
   const m: Marks = { evidence: new Set(), probing: new Set() }
   if (!inv) return m
-  const calls = inv.events.filter((e) => e.kind === 'tool_call')
-  const results = new Set(inv.events.filter((e) => e.kind === 'tool_result').map((e) => e.step))
-  const pending = calls.find((c) => !results.has(c.step))
+  const done = new Set(inv.events.filter((e) => e.kind === 'tool_result').map((e) => e.step))
+  const pending = inv.events.find((e) => e.kind === 'tool_call' && !done.has(e.step))
   if (pending) {
     const a = pending.args ?? {}
     for (const v of [a.topic, a.node]) if (typeof v === 'string') m.probing.add(v.startsWith('/') ? v : `/${v}`)
@@ -29,52 +28,23 @@ function marksFor(inv: Investigation | null): Marks {
 }
 
 export default function App() {
-  const { health, graph, inv, connected, status, lastFault, readiness, preparing } = useRobotOps()
+  const { health, graph, inv, connected, status, readiness, preparing } = useRobotOps()
   const running = !!inv && !TERMINAL.includes(inv.phase)
-  const locked = !readiness?.infra_ready || !!preparing      // model/ROS not ready: no demo controls
-  const busy = running || locked
+  const locked = !readiness?.infra_ready || !!preparing            // model / ROS not ready: no demo controls
+  const state = useMemo(() => deriveState({ connected, readiness, preparing, health, inv }), [connected, readiness, preparing, health, inv])
   const marks = useMemo(() => marksFor(inv), [inv])
   const ask = async (q: string) => { await api('/api/investigations', { query: q }) }
 
   return (
     <div className="app">
-      <header>
-        <div className="brand">
-          <img src="/favicon.svg" alt="" />
-          <div>
-            <h1>RobotOps</h1>
-            <p>Autonomous AI Reliability Engineer for ROS 2</p>
-          </div>
-        </div>
-        <StatusPills status={status} connected={connected} />
-      </header>
-
-      {!connected && <div className="banner">Backend disconnected — reconnecting…</div>}
-      <ReadyBanner readiness={readiness} preparing={preparing} health={health} inv={inv} connected={connected} />
-      <HealthBar health={health} />
-
-      <main>
-        <div className="col-left">
-          <GraphPanel graph={graph} marks={marks} recovered={inv?.phase === 'resolved'} />
-          <Incident inv={inv} />
-          <div className="cards">
-            <RootCause inv={inv} />
-            <RepairPanel inv={inv} />
-            <VerificationPanel inv={inv} />
-          </div>
-        </div>
-        <div className="col-right">
-          <section className="panel timeline-panel">
-            <div className="panel-head">
-              <h2>AI Investigation</h2>
-              {inv && <span className="muted small mono">{inv.tool_calls} tool calls · {inv.phase.replace('_', ' ')}{running ? '' : inv.diagnosis_seconds ? ` · diagnosed in ${inv.diagnosis_seconds}s` : ''}</span>}
-            </div>
-            <AskPanel busy={busy} onAsk={ask} />
-            <Timeline inv={inv} />
-          </section>
-          <FaultPanel busy={busy} lastFault={lastFault} />
-        </div>
+      <Header health={health} graph={graph} status={status} />
+      <StatusBar state={state} readiness={readiness} />
+      <main className="body">
+        <SystemPanel health={health} graph={graph} readiness={readiness} preparing={preparing} running={running} locked={locked} connected={connected} />
+        <GraphPanel graph={graph} marks={marks} />
+        <Investigation inv={inv} running={running} />
       </main>
+      <Composer busy={running || locked} reason={locked ? 'Waiting for the system to be ready…' : undefined} onAsk={ask} />
     </div>
   )
 }

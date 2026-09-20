@@ -1,152 +1,162 @@
-import { useMemo } from 'react'
+import { useEffect, useMemo, useRef } from 'react'
 import {
-  ReactFlow, Background, Handle, Position, MarkerType,
+  ReactFlow, ReactFlowProvider, Background, Handle, Position, MarkerType, useReactFlow,
   type Node, type Edge, type NodeProps,
 } from '@xyflow/react'
 import '@xyflow/react/dist/style.css'
 import type { Graph } from '../api'
 
-// Hand-placed layout that follows the robot's data flow (left -> right).
+// Layout follows the data flow. Rows: motion chain, odometry, sensing, sensor transform. Units are px at zoom 1.
+const COL = 172
 const LAYOUT: Record<string, [number, number]> = {
-  '/velocity_commander': [0, 40],
-  '/cmd_vel': [240, 48],
-  '/base_controller': [450, 40],
-  '/wheel_states': [690, 48],
-  '/wheel_odometry': [900, 40],
-  'tf:odom->base_link': [1140, 48],
-  '/odom': [910, 175],
-  '/lidar_driver': [0, 250],
-  '/scan': [470, 258],
-  '/obstacle_monitor': [900, 300],
-  '/obstacle_distance': [1140, 308],
-  '/tf_broadcaster': [0, 400],
-  'tf:base_link->laser': [450, 408],
+  '/velocity_commander': [0, 0], '/cmd_vel': [COL, 0], '/base_controller': [COL * 2, 0], '/wheel_states': [COL * 3, 0], '/wheel_odometry': [COL * 4, 0],
+  'tf:odom->base_link': [COL * 3, 140], '/odom': [COL * 4, 140],
+  '/lidar_driver': [0, 280], '/scan': [COL, 280], '/obstacle_monitor': [COL * 3, 280], '/obstacle_distance': [COL * 4, 280],
+  '/tf_broadcaster': [0, 420], 'tf:base_link->laser': [COL, 420],
 }
+const SIZE = { node: [148, 40], topic: [148, 40], tf: [148, 40] } as const
 
 export type Marks = {
-  rootCause?: string        // node id
-  evidence: Set<string>     // subjects cited in the diagnosis
+  rootCause?: string        // node id confirmed as the cause
+  evidence: Set<string>     // subjects cited by the diagnosis (suspected / involved)
   probing: Set<string>      // subjects of the tool call in progress
 }
 
-type RosData = { label: string; kind: 'node' | 'topic' | 'tf'; state: string; sub?: string; mark?: string }
+type RosData = { label: string; kind: 'node' | 'topic' | 'tf'; state: string; sub: string; mark?: string }
+type Side = 'left' | 'right' | 'top' | 'bottom'
+const POS: Record<Side, Position> = { left: Position.Left, right: Position.Right, top: Position.Top, bottom: Position.Bottom }
 
 function RosNode({ data }: NodeProps<Node<RosData>>) {
   return (
-    <div className={`gnode gnode-${data.kind} st-${data.state} ${data.mark ? `mark-${data.mark}` : ''}`}>
-      <Handle type="target" position={Position.Left} />
-      <div className="gnode-label">{data.label}</div>
-      {data.sub && <div className="gnode-sub">{data.sub}</div>}
-      {data.mark === 'root' && <div className="gnode-flag">ROOT CAUSE</div>}
-      <Handle type="source" position={Position.Right} />
+    <div className={`gn gn-${data.kind} st-${data.state}${data.mark ? ` mark-${data.mark}` : ''}`}>
+      {(Object.keys(POS) as Side[]).map((s) => (
+        <span key={s}>
+          <Handle id={`${s}-t`} type="target" position={POS[s]} />
+          <Handle id={`${s}-s`} type="source" position={POS[s]} />
+        </span>
+      ))}
+      <div className="gn-name">{data.label}</div>
+      <div className="gn-sub">{data.sub}</div>
     </div>
   )
 }
+const nodeTypes = { ros: RosNode }
 
-function RegionNode({ data }: NodeProps<Node<{ w: number; h: number }>>) {
-  return <div className="region" style={{ width: data.w, height: data.h }}><span>AFFECTED</span></div>
+function sideFor(a: { x: number; y: number }, b: { x: number; y: number }): [Side, Side] {
+  const dx = b.x - a.x, dy = b.y - a.y
+  if (Math.abs(dy) > Math.abs(dx) * 0.7) return dy > 0 ? ['bottom', 'top'] : ['top', 'bottom']
+  return dx >= 0 ? ['right', 'left'] : ['left', 'right']
 }
 
-const nodeTypes = { ros: RosNode, region: RegionNode }
-
-export function GraphPanel({ graph, marks, recovered }: { graph: Graph | null; marks: Marks; recovered?: boolean }) {
+export function GraphPanel({ graph, marks }: { graph: Graph | null; marks: Marks }) {
   const { nodes, edges } = useMemo(() => build(graph, marks), [graph, marks])
   return (
-    <section className="panel graph-panel">
-      <div className="panel-head">
-        <h2>ROS System Graph</h2>
+    <section className="graph">
+      <div className="pane-head">
+        <h2>ROS graph</h2>
         <div className="legend">
-          <span><i className="lg lg-ok" />healthy</span>
-          <span><i className="lg lg-bad" />failed / missing</span>
-          <span><i className="lg lg-probe" />being inspected</span>
-          <span><i className="lg lg-root" />root cause</span>
+          <span><i className="dot ok" />healthy</span>
+          <span><i className="dot fail" />failed</span>
+          <span><i className="ring probe" />inspecting</span>
+          <span><i className="ring suspect" />involved</span>
         </div>
       </div>
       <div className="graph-canvas">
-        {graph && !graph.ros_available && <div className="overlay-msg">ROS graph unavailable</div>}
-        {recovered && <div className="recovered-badge">RECOVERY VERIFIED</div>}
-        <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.12 }}
-          proOptions={{ hideAttribution: true }} nodesDraggable={false} nodesConnectable={false}
-          elementsSelectable={false} zoomOnScroll={false} panOnDrag={false} preventScrolling={false}>
-          <Background color="#1c2531" gap={22} size={1} />
-        </ReactFlow>
+        {graph && !graph.ros_available && <div className="graph-empty">ROS graph unavailable</div>}
+        <ReactFlowProvider>
+          <Canvas nodes={nodes} edges={edges} />
+        </ReactFlowProvider>
       </div>
     </section>
+  )
+}
+
+/** Keeps the whole graph in view: refits when the set of nodes changes and whenever the panel is resized. */
+function Canvas({ nodes, edges }: { nodes: Node<RosData>[]; edges: Edge[] }) {
+  const { fitView } = useReactFlow()
+  const wrap = useRef<HTMLDivElement>(null)
+  const signature = nodes.map((n) => n.id).join('|')
+  useEffect(() => {
+    const id = requestAnimationFrame(() => fitView({ padding: 0.06, minZoom: 0.4, maxZoom: 1.25 }))
+    return () => cancelAnimationFrame(id)
+  }, [signature, fitView])
+  useEffect(() => {
+    if (!wrap.current) return
+    let t: number | undefined
+    const ro = new ResizeObserver(() => { window.clearTimeout(t); t = window.setTimeout(() => fitView({ padding: 0.06, minZoom: 0.4, maxZoom: 1.25 }), 60) })
+    ro.observe(wrap.current)
+    return () => { ro.disconnect(); window.clearTimeout(t) }
+  }, [fitView])
+  return (
+    <div ref={wrap} className="graph-fit">
+      <ReactFlow nodes={nodes} edges={edges} nodeTypes={nodeTypes} fitView fitViewOptions={{ padding: 0.06, minZoom: 0.4, maxZoom: 1.25 }}
+        minZoom={0.4} maxZoom={1.25} proOptions={{ hideAttribution: true }} nodesDraggable={false} nodesConnectable={false}
+        elementsSelectable={false} zoomOnScroll={false} zoomOnPinch={false} zoomOnDoubleClick={false} panOnDrag={false} preventScrolling={false}>
+        <Background color="#1b2129" gap={24} size={1} />
+      </ReactFlow>
+    </div>
   )
 }
 
 function build(graph: Graph | null, marks: Marks): { nodes: Node<RosData>[]; edges: Edge[] } {
   if (!graph) return { nodes: [], edges: [] }
   const nodes: Node<RosData>[] = []
-  const edges: Edge[] = []
   let extra = 0
   const place = (id: string): { x: number; y: number } => {
     const p = LAYOUT[id]
-    if (p) return { x: p[0] * 0.8, y: p[1] * 0.95 }
-    const pos = { x: 240 + (extra % 4) * 230, y: -90 - Math.floor(extra / 4) * 70 }
+    if (p) return { x: p[0], y: p[1] }
+    const pos = { x: (extra % 5) * COL, y: 520 + Math.floor(extra / 5) * 60 }
     extra++
     return pos
   }
   const mark = (id: string) =>
-    marks.rootCause === id ? 'root' : marks.probing.has(id) ? 'probe' : marks.evidence.has(id) ? 'evidence' : undefined
+    marks.rootCause === id ? 'root' : marks.probing.has(id) ? 'probe' : marks.evidence.has(id) ? 'suspect' : undefined
+  const add = (id: string, kind: RosData['kind'], data: Omit<RosData, 'kind' | 'mark'>) => {
+    const [width, height] = SIZE[kind]
+    nodes.push({ id, type: 'ros', position: place(id), width, height, draggable: false, selectable: false, data: { ...data, kind, mark: mark(id) } })
+  }
 
   for (const n of graph.nodes) {
-    nodes.push({
-      id: n.id, type: 'ros', position: place(n.id),
-      data: {
-        label: n.label, kind: 'node', mark: mark(n.id),
-        state: n.alive ? (n.expected ? 'ok' : 'extra') : 'missing',
-        sub: n.alive ? undefined : 'NOT RUNNING',
-      },
-    })
+    add(n.id, 'node', { label: n.label, state: n.alive ? (n.expected ? 'ok' : 'extra') : 'missing', sub: n.alive ? 'node' : 'node · unavailable' })
   }
   for (const t of graph.topics) {
     const flowing = t.rate_hz !== null && t.min_rate_hz !== null ? t.rate_hz >= t.min_rate_hz : t.publishers > 0
     const state = !t.expected ? 'bad' : t.rate_hz === null ? 'ok' : flowing ? 'ok' : 'bad'
-    nodes.push({
-      id: t.id, type: 'ros', position: place(t.id),
-      data: {
-        label: t.label, kind: 'topic', state, mark: mark(t.id),
-        sub: t.rate_hz !== null ? `${t.rate_hz.toFixed(1)} Hz · ${t.publishers}→${t.subscribers}` : `${t.publishers} pub · ${t.subscribers} sub`,
-      },
+    add(t.id, 'topic', {
+      label: t.label, state,
+      sub: t.rate_hz !== null ? `${t.rate_hz.toFixed(1)} Hz · ${t.publishers}→${t.subscribers}` : `${t.publishers}→${t.subscribers}`,
     })
   }
   for (const tf of graph.tf ?? []) {
     const id = `tf:${tf.parent}->${tf.child}`
-    nodes.push({
-      id, type: 'ros', position: place(id),
-      data: {
-        label: `TF ${tf.parent}→${tf.child}`, kind: 'tf', state: tf.fresh ? 'ok' : 'bad', mark: mark(id),
-        sub: tf.age_s === null ? 'unavailable' : tf.fresh ? `${Math.round(tf.age_s * 1000)} ms old` : `stale ${tf.age_s.toFixed(1)} s`,
-      },
+    add(id, 'tf', {
+      label: `tf ${tf.parent}→${tf.child}`, state: tf.fresh ? 'ok' : 'bad',
+      sub: tf.age_s === null ? 'unavailable' : tf.fresh ? `${Math.round(tf.age_s * 1000)} ms` : `stale ${tf.age_s.toFixed(1)} s`,
     })
-    edges.push(edge(`${tf.broadcaster}>${id}`, tf.broadcaster, id, tf.fresh))
-    if (tf.child === 'laser') edges.push(edge(`${id}>/obstacle_monitor`, id, '/obstacle_monitor', tf.fresh))
   }
+
+  const at = new Map(nodes.map((n) => [n.id, n.position]))
+  const edges: Edge[] = []
   const topicOk = new Map(graph.topics.map((t) => [t.id, t.rate_hz === null || (t.min_rate_hz !== null && t.rate_hz >= t.min_rate_hz)]))
-  const ids = new Set(nodes.map((n) => n.id))
-  for (const e of graph.edges) {
-    if (!ids.has(e.source) || !ids.has(e.target)) continue
-    const topic = e.kind === 'pub' ? e.target : e.source
-    edges.push(edge(`${e.source}>${e.target}`, e.source, e.target, e.live, e.live && (topicOk.get(topic) ?? true)))
+  const link = (id: string, source: string, target: string, live: boolean, flowing: boolean) => {
+    const a = at.get(source), b = at.get(target)
+    if (!a || !b) return
+    const [ss, ts] = sideFor(a, b)
+    const color = !live ? '#f85149' : flowing ? '#4b5563' : '#d29922'
+    edges.push({
+      id, source, target, sourceHandle: `${ss}-s`, targetHandle: `${ts}-t`, type: 'smoothstep', pathOptions: { borderRadius: 4 },
+      style: { stroke: color, strokeWidth: 1.25, strokeDasharray: live ? undefined : '4 4' },
+      markerEnd: { type: MarkerType.ArrowClosed, color, width: 12, height: 12 },
+    } as Edge)
   }
-  // Highlight the affected region: bounding box of failed/missing/root-cause/evidence nodes.
-  const bad = nodes.filter((n) => n.data.state === 'missing' || n.data.state === 'bad' || n.data.mark === 'root')
-  if (bad.length) {
-    const W = 175, H = 56
-    const x0 = Math.min(...bad.map((n) => n.position.x)) - 26, y0 = Math.min(...bad.map((n) => n.position.y)) - 34
-    const x1 = Math.max(...bad.map((n) => n.position.x)) + W + 26, y1 = Math.max(...bad.map((n) => n.position.y)) + H + 22
-    nodes.unshift({ id: '__region', type: 'region', position: { x: x0, y: y0 }, zIndex: -1, selectable: false, draggable: false,
-      data: { w: x1 - x0, h: y1 - y0 } } as unknown as Node<RosData>)
+  for (const tf of graph.tf ?? []) {
+    const id = `tf:${tf.parent}->${tf.child}`
+    link(`${tf.broadcaster}>${id}`, tf.broadcaster, id, tf.fresh, tf.fresh)
+    if (tf.child === 'laser') link(`${id}>/obstacle_monitor`, id, '/obstacle_monitor', tf.fresh, tf.fresh)
+  }
+  for (const e of graph.edges) {
+    const topic = e.kind === 'pub' ? e.target : e.source
+    link(`${e.source}>${e.target}`, e.source, e.target, e.live, e.live && (topicOk.get(topic) ?? true))
   }
   return { nodes, edges }
-}
-
-function edge(id: string, source: string, target: string, live: boolean, flowing = live): Edge {
-  const color = !live ? '#ef4444' : flowing ? '#2dd4bf' : '#f59e0b'
-  return {
-    id, source, target, animated: live && flowing,
-    style: { stroke: color, strokeWidth: 1.6, strokeDasharray: live ? undefined : '5 5', opacity: live ? 0.9 : 0.8 },
-    markerEnd: { type: MarkerType.ArrowClosed, color, width: 14, height: 14 },
-  }
 }
