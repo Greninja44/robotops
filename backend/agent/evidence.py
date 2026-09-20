@@ -50,7 +50,7 @@ class EvidenceLedger:
         return len(self.items)
 
 
-def format_for_llm(result: ToolResult, evidence: list[Evidence], max_data_chars: int = 700) -> str:
+def format_for_llm(result: ToolResult, evidence: list[Evidence], max_data_chars: int = 300) -> str:
     """Compact tool-result message: cited-able findings first, then truncated raw data."""
     if not result.success:
         return f"TOOL FAILED ({result.tool}): {result.error}"

@@ -55,6 +55,14 @@ def llm_tool_specs() -> list[dict]:
     return specs
 
 
+def normalize_args(name: str, args: dict | None) -> dict:
+    """Keep only the arguments a tool declares (models sometimes pass irrelevant ones); drop empty values."""
+    if name not in READ_ONLY_TOOLS:
+        return dict(args or {})
+    props = READ_ONLY_TOOLS[name][2]
+    return {k: v for k, v in (args or {}).items() if k in props and v not in (None, "")}
+
+
 def execute(client, name: str, args: dict | None) -> ToolResult:
     if name not in READ_ONLY_TOOLS:
         return ToolResult(tool=name, args=args or {}, success=False,

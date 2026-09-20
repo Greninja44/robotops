@@ -1,57 +1,66 @@
-"""Prompts for the investigation agent."""
+"""Prompts for the investigation agent (compact, JSON-decision protocol).
+
+The system prompt contains ARCHITECTURE knowledge only (what a healthy robot looks like, what the tools do).
+It never contains fault information: which fault is active is discovered from tool evidence.
+"""
 from __future__ import annotations
 
+from backend.ros_tools import registry
 from backend.ros_tools.common import manifest
 
 
-def robot_summary() -> str:
+def architecture_summary() -> str:
+    """Compact topology derived from demo_robot/manifest.json (static architecture, not fault identity)."""
     m = manifest()
-    lines = [m["description"], "", "Expected nodes:"]
-    lines += [f"  {n}: {meta['role']}" for n, meta in m["nodes"].items()]
-    lines.append("Expected topics (publisher -> subscriber):")
-    for t, meta in m["topics"].items():
-        lines.append(f"  {t} [{meta['type']}] {', '.join(meta['publishers'])} -> "
-                     f"{', '.join(meta['subscribers']) or '(none)'}  >= {meta['min_rate_hz']} Hz")
-    lines.append("Expected TF: " + ", ".join(f"{e['parent']}->{e['child']} (by {e['broadcaster']})" for e in m["tf"]))
+    lines = []
+    for node, meta in m["nodes"].items():
+        consumes = [t for t, v in m["topics"].items() if node in v["subscribers"]]
+        produces = [t for t, v in m["topics"].items() if node in v["publishers"]]
+        produces += [f"TF {e['parent']}->{e['child']}" for e in m["tf"] if e["broadcaster"] == node]
+        lines.append(f"{node} ({meta['component']}): {meta['role']}; consumes {', '.join(consumes) or '-'}; "
+                     f"produces {', '.join(produces) or '-'}")
+    rates = ", ".join(f"{t} >= {v['min_rate_hz']:g} Hz" for t, v in m["topics"].items())
+    return "\n".join(lines) + f"\nHealthy rates: {rates}"
+
+
+def tool_summary() -> str:
+    lines = []
+    for name, (_, desc, props, _req) in registry.READ_ONLY_TOOLS.items():
+        lines.append(f"- {name}({', '.join(props)}): {desc}")
     return "\n".join(lines)
 
 
-SYSTEM = """You are RobotOps, an autonomous reliability engineer for a ROS 2 robot.
-You diagnose failures ONLY from evidence returned by your diagnostic tools.
+SYSTEM = """You are RobotOps, a ROS 2 reliability engineer. Diagnose ONLY from tool evidence.
 
-ROBOT MANIFEST (how the healthy robot is supposed to look):
-{robot}
+Normal architecture:
+{arch}
 
-HOW TO WORK
-- Call ONE diagnostic tool at a time. Pick the tool that best tests your current hypothesis.
-- Every tool result lists findings with IDs like E4. [ANOMALY] findings are deviations from the manifest.
-- Follow the data flow upstream: a symptom in one node is often caused by a failed producer it depends on.
-  Find the component where the problem ORIGINATES, not the one that complains.
+Tools (read-only):
+{tools}
+
+Reply with ONE JSON object and nothing else.
+Investigate: {{"reason_summary":"<one short sentence>","action":"tool","tool":"<name>","arguments":{{...}}}}
+Conclude:    {{"reason_summary":"<one short sentence>","action":"diagnose","root_cause":"<what failed and how>","faulty_component":"<component name or none>","evidence_ids":["E2","E5"],"recommended_action":"restart_component"|"none"}}
+
+Rules:
+- Findings carry IDs (E4). [ANOMALY] means deviation from the normal architecture above.
+- Trace symptoms upstream to where the problem ORIGINATES, not to the node that complains.
 - A node can be running but broken (stalled, hung, misconfigured): check rates, TF freshness, parameters.
-- Do not repeat a tool call with the same arguments.
-- Before submitting, confirm your hypothesis with at least one direct check of the affected data flow
-  (inspect_topic, measure_topic_rate, check_tf, inspect_parameters or get_recent_logs).
-- When the evidence identifies the root cause, call submit_diagnosis with the evidence IDs that prove it
-  (at least 2, including anomalies about the faulty component) and recommended_action.
-- restart_component restarts a component with its correct default configuration; it fixes crashed,
-  stalled, hung and misconfigured components.
-- Never invent observations. If evidence is insufficient, investigate more.
-- You have at most {max_steps} tool calls. Be efficient: usually 3-6 are enough.
-"""
+- Do not repeat a call. You have at most {max_steps} tool calls; usually 2-4 are enough.
+- Conclude only when at least two DIFFERENT tool calls support the same component; cite their evidence IDs.
+- restart_component fixes crashed, stalled, hung and misconfigured components.
+- Never invent evidence."""
 
 
-def system_prompt(max_steps: int, think: bool = True) -> str:
-    text = SYSTEM.format(robot=robot_summary(), max_steps=max_steps)
-    return text if think else text + "\n/no_think"
+def system_prompt(max_steps: int, think: bool = True) -> str:  # `think` kept for call-site compatibility
+    return SYSTEM.format(arch=architecture_summary(), tools=tool_summary(), max_steps=max_steps)
 
 
 def user_prompt(query: str, initial_observation: str) -> str:
     return (f"Operator report: \"{query}\"\n\n"
-            f"Initial observation (get_ros_health, run automatically):\n{initial_observation}\n\n"
-            "Investigate and find the root cause.")
+            f"Initial observation (get_ros_health, run automatically):\n{initial_observation}")
 
 
-NUDGE_NO_TOOL = ("You did not call a tool. Call exactly one diagnostic tool, or call submit_diagnosis if the "
-                 "evidence already identifies the root cause.")
-FORCE_DIAGNOSIS = ("Investigation budget exhausted. Call submit_diagnosis now using only evidence IDs you have "
-                   "already received.")
+NUDGE_NO_TOOL = 'Reply with one JSON object: {"action":"tool",...} to investigate or {"action":"diagnose",...} to conclude.'
+FORCE_DIAGNOSIS = ('Investigation budget exhausted. Reply now with {"action":"diagnose",...} using only evidence IDs '
+                   'you have already received.')

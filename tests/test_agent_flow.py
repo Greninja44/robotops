@@ -71,8 +71,11 @@ def make_agent(env, replies, **kw):
 
 
 async def approve_when_pending(inv, approvals, approve=True):
-    while inv.phase != Phase.AWAITING_APPROVAL:
+    for _ in range(500):
+        if inv.phase == Phase.AWAITING_APPROVAL or inv.done:
+            break
         await asyncio.sleep(0.01)
+    assert inv.phase == Phase.AWAITING_APPROVAL, (inv.phase, inv.error)
     approvals.decide(inv.proposal["id"], approve, by="test")
 
 
@@ -93,7 +96,7 @@ async def test_full_loop_resolves_only_after_approval_and_verification(env):
 
 
 async def test_rejected_proposal_executes_nothing(env):
-    agent, approvals = make_agent(env, [call("get_component_status"), diag(ids=("E2", "E4"))])
+    agent, approvals = make_agent(env, [call("inspect_topic", topic="/cmd_vel"), call("get_component_status"), diag(ids=("E2", "E4"))])
     inv = Investigation("q")
     task = asyncio.create_task(agent.run(inv))
     await approve_when_pending(inv, approvals, approve=False)
@@ -103,7 +106,8 @@ async def test_rejected_proposal_executes_nothing(env):
 
 async def test_invalid_diagnosis_is_fed_back_and_agent_recovers(env):
     agent, approvals = make_agent(env, [
-        diag(ids=("E1",)),                    # baseline E1 is non-anomalous, only 1 id -> rejected
+        diag(ids=("E1",)),                    # too early (no checks of its own yet) and only 1 id -> rejected
+        call("inspect_topic", topic="/cmd_vel"),
         call("get_component_status"),
         diag(ids=("E2", "E4"))], auto_approve=True)
     inv = Investigation("q")
@@ -137,24 +141,25 @@ async def test_step_budget_is_enforced(env):
 
 async def test_duplicate_calls_are_not_executed_twice(env):
     agent, _ = make_agent(env, [call("inspect_topic", topic="/cmd_vel"), call("inspect_topic", topic="/cmd_vel"),
-                                diag(ids=("E2", "E4"))], auto_approve=True)
+                                call("get_component_status"), diag(ids=("E2", "E4"))], auto_approve=True)
     inv = Investigation("q")
     await agent.run(inv)
-    assert inv.tool_calls == 2                                       # baseline + one real call
+    assert inv.tool_calls == 3                                       # baseline + two real calls (the repeat was not run)
+    assert inv.phase == Phase.RESOLVED
 
 
 async def test_baseline_health_check_is_not_repeated_by_the_model(env):
-    agent, _ = make_agent(env, [call("get_ros_health"), call("get_component_status"), diag(ids=("E2", "E4"))],
+    agent, _ = make_agent(env, [call("get_ros_health"), call("inspect_topic", topic="/cmd_vel"), call("get_component_status"), diag(ids=("E2", "E4"))],
                           auto_approve=True)
     inv = Investigation("q")
     await agent.run(inv)
-    assert inv.tool_calls == 2                                       # baseline + get_component_status only
+    assert inv.tool_calls == 3                                       # baseline + two real checks (the repeated baseline was not run)
     assert inv.phase == Phase.RESOLVED
 
 
 async def test_unknown_tool_from_llm_is_a_failed_tool_not_an_execution(env):
-    agent, _ = make_agent(env, [call("restart_component", target="base_controller"), diag(ids=("E2", "E3"))],
-                          auto_approve=True)
+    agent, _ = make_agent(env, [call("restart_component", target="base_controller"), call("inspect_topic", topic="/cmd_vel"), call("get_component_status"),
+                                diag(ids=("E2", "E4"))], auto_approve=True)
     inv = Investigation("q")
     await agent.run(inv)
     failed = [e for e in inv.events if e["kind"] == "tool_result" and not e["success"]]
@@ -172,8 +177,8 @@ async def test_llm_outage_ends_in_error_without_side_effects(env):
 
 async def test_failed_verification_reinvestigates_once_then_stops_safely(env):
     env["verdicts"][:] = [{"verified": False, "attempts": 4, "checks": [], "failed": [{"check": "x", "detail": "still down"}]}] * 2
-    agent, _ = make_agent(env, [diag(ids=("E2", "E3")), call("get_component_status"), diag(ids=("E2", "E4"))],
-                          auto_approve=True)
+    agent, _ = make_agent(env, [call("inspect_topic", topic="/cmd_vel"), call("get_component_status"), diag(ids=("E2", "E4")),
+                                call("get_component_status"), call("inspect_topic", topic="/cmd_vel"), diag(ids=("E2", "E7"))], auto_approve=True)
     inv = Investigation("q")
     await agent.run(inv)
     assert inv.phase == Phase.REPAIR_FAILED and inv.round == 2
@@ -182,7 +187,7 @@ async def test_failed_verification_reinvestigates_once_then_stops_safely(env):
 
 async def test_healthy_diagnosis_with_no_anomalies(env, monkeypatch):
     monkeypatch.setattr(graph_mod.registry, "execute", lambda c, n, a: make_result(n, [("all good", False, [])]))
-    agent, _ = make_agent(env, [diag(component="none", ids=("E1",), action="none", cause="no fault")])
+    agent, _ = make_agent(env, [call("inspect_topic", topic="/cmd_vel"), call("list_nodes"), diag(component="none", ids=("E1",), action="none", cause="no fault")])
     inv = Investigation("q")
     await agent.run(inv)
     assert inv.phase == Phase.HEALTHY and env["executed"] == []
@@ -200,7 +205,7 @@ async def test_ros_unavailable_at_baseline_ends_in_error(env, monkeypatch):
 
 async def test_malformed_llm_tool_calls_do_not_crash(env):
     bad = LLMReply(content="", malformed=["arguments for x are not valid JSON"])
-    agent, _ = make_agent(env, [bad, call("get_component_status"), diag(ids=("E2", "E4"))], auto_approve=True)
+    agent, _ = make_agent(env, [bad, call("inspect_topic", topic="/cmd_vel"), call("get_component_status"), diag(ids=("E2", "E4"))], auto_approve=True)
     inv = Investigation("q")
     await agent.run(inv)
     assert any(e["kind"] == "warning" for e in inv.events) and inv.phase == Phase.RESOLVED
@@ -265,3 +270,81 @@ def test_llm_timeout_and_connection_errors_map_to_unavailable(monkeypatch):
     monkeypatch.setattr(httpx, "AsyncClient", Client)
     with pytest.raises(llm.LLMUnavailable, match="timed out .*2 attempts"):
         asyncio.run(llm.chat([], []))
+
+
+async def test_diagnosis_from_a_single_tool_call_is_rejected_until_corroborated(env):
+    # E2 and E3 both come from the automatic baseline (one tool call): not enough, the model must check something itself
+    agent, _ = make_agent(env, [call("inspect_topic", topic="/cmd_vel"), call("get_component_status"), diag(ids=("E2", "E3")), diag(ids=("E2", "E4"))],
+                          auto_approve=True)
+    inv = Investigation("q")
+    await agent.run(inv)
+    rej = [e for e in inv.events if e["kind"] == "diagnosis_rejected"]
+    assert rej and "2 different tool calls" in rej[0]["errors"][0]
+    assert inv.tool_calls == 3 and inv.phase == Phase.RESOLVED
+
+
+async def test_model_timeout_and_retry_are_visible_in_the_timeline(env):
+    async def chat(messages, tools):
+        notify = llm.retry_notifier.get()
+        notify({"kind": "model_timeout", "final": False, "timeout_s": 60})
+        return call("get_component_status")
+    replies = [call("inspect_topic", topic="/cmd_vel"), call("get_component_status"), diag(ids=("E2", "E4"))]
+    scripted = Script(replies)
+
+    async def wrapped(messages, tools):
+        llm.retry_notifier.get()({"kind": "model_timeout", "final": False, "timeout_s": 60})
+        return await scripted(messages, tools)
+    agent, _ = make_agent(env, [], auto_approve=True)
+    agent.chat = wrapped
+    inv = Investigation("q")
+    await agent.run(inv)
+    assert [e for e in inv.events if e["kind"] == "model_timeout"] and inv.phase == Phase.RESOLVED
+
+
+def test_json_decision_parsing_maps_to_tool_calls():
+    tc, problem, reason = llm.parse_decision('{"reason_summary":"check consumer","action":"tool","tool":"inspect_topic",'
+                                             '"arguments":{"topic":"/cmd_vel"}}')
+    assert problem is None and tc.name == "inspect_topic" and tc.arguments == {"topic": "/cmd_vel", "reason": "check consumer"}
+    tc, problem, _ = llm.parse_decision('{"reason_summary":"done","action":"diagnose","root_cause":"x",'
+                                        '"faulty_component":"base_controller","evidence_ids":["E2","E4"],'
+                                        '"recommended_action":"restart_component"}')
+    assert tc.name == "submit_diagnosis" and tc.arguments["evidence_ids"] == ["E2", "E4"]
+    for bad in ("", "{not json", "[1]", '{"action":"tool"}', '{"action":"explode"}'):
+        assert llm.parse_decision(bad)[0] is None
+
+
+def test_json_protocol_never_offers_state_changing_tools():
+    schema = llm.decision_schema()
+    assert "restart_component" not in schema["properties"]["tool"]["enum"]
+    assert set(schema["properties"]["tool"]["enum"]) == set(graph_mod.registry.READ_ONLY_TOOLS)
+
+
+def test_tool_results_are_sent_to_the_model_as_user_turns():
+    out = llm._plain_messages([{"role": "system", "content": "s"}, {"role": "assistant", "content": "{}"},
+                               {"role": "tool", "tool_name": "list_nodes", "content": "E4 ..."}])
+    assert [m["role"] for m in out] == ["system", "assistant", "user"] and out[2]["content"].startswith("TOOL RESULT list_nodes")
+
+
+def test_system_prompt_is_compact_and_contains_no_fault_information():
+    from backend.agent import prompts
+    text = prompts.system_prompt(10)
+    assert len(text) < 3500
+    for word in ("controller_crash", "lidar_failure", "tf_failure", "topic_misconfig", "node_crash", "inject"):
+        assert word not in text
+    assert "/cmd_vel" in text and "base_controller" in text        # architecture knowledge is there
+
+
+async def test_conclusion_before_two_own_checks_is_refused(env):
+    agent, _ = make_agent(env, [call("inspect_topic", topic="/cmd_vel"), diag(ids=("E2", "E4")),
+                                call("get_component_status"), diag(ids=("E2", "E4"))], auto_approve=True)
+    inv = Investigation("q")
+    await agent.run(inv)
+    rej = [e for e in inv.events if e["kind"] == "diagnosis_rejected"]
+    assert rej and "at least 2 direct checks" in rej[0]["errors"][0]
+    assert inv.phase == Phase.RESOLVED and inv.tool_calls == 3
+
+
+def test_tool_arguments_are_normalized_to_declared_parameters():
+    from backend.ros_tools import registry
+    assert registry.normalize_args("list_nodes", {"node": "base_controller"}) == {}
+    assert registry.normalize_args("inspect_topic", {"topic": "/cmd_vel", "node": "x", "duration": None}) == {"topic": "/cmd_vel"}

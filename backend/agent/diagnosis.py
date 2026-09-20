@@ -110,6 +110,11 @@ def validate(raw: dict, ledger: EvidenceLedger) -> tuple[Diagnosis | None, list[
         return Diagnosis(status="healthy", root_cause=root_cause, faulty_component=NONE, evidence=cited,
                          confidence=0.0, confidence_basis=["no fault claimed"]), []
 
+    if len({e.step for e in cited}) < 2:
+        return None, ["cite findings from at least 2 different tool calls (corroboration): make one more direct "
+                      "check of the suspected component (e.g. inspect_topic, inspect_node, check_tf, "
+                      "get_component_status), then resubmit"]
+
     supporting = policies.evidence_supports_target(cited, component)
     try:
         policies.repair_gate(cited, component)

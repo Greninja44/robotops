@@ -32,6 +32,7 @@ MAX_REJECTED_DIAGNOSES = 3
 MAX_NUDGES = 2
 APPROVAL_TIMEOUT_S = 15 * 60
 MAX_CALLS_PER_TURN = 2
+MIN_OWN_CHECKS = 2       # process rule: the model must run >= 2 checks of its own (beyond the automatic baseline) before concluding
 
 
 def _tool_specs() -> list[dict]:
@@ -52,7 +53,7 @@ class Agent:
         self.audit = audit
         self.auto_approve = auto_approve
         self.max_steps = max_steps
-        self.chat = chat or llm.chat
+        self.chat = chat or llm.default_chat()
         self.tools = _tool_specs()
 
     # ------------------------------------------------------------------ helpers
@@ -76,6 +77,7 @@ class Agent:
     # ------------------------------------------------------------------ phases
     async def run(self, inv: Investigation) -> Investigation:
         self._log(inv, "investigation_started", query=inv.query, auto_approve=self.auto_approve)
+        llm.retry_notifier.set(lambda d: self._on_model_event(inv, d))   # live "model timeout / retrying" in the timeline
         try:
             await self._observe(inv)
             while True:
@@ -113,6 +115,12 @@ class Agent:
                   error=inv.error, verification=(inv.verification or {}).get("verified"))
         return inv
 
+    def _on_model_event(self, inv: Investigation, d: dict):
+        d = dict(d)
+        kind = d.pop("kind")
+        inv.emit(kind, **d)
+        self._log(inv, kind, **d)
+
     def _fail(self, inv: Investigation, message: str):
         """Stop in ERROR from any phase (evidence gathered so far is kept)."""
         inv.error = message
@@ -136,6 +144,7 @@ class Agent:
         steps = nudges = rejected = 0
         forced = False
         seen: dict[str, list[str]] = {}
+        own_checks = 0
         if inv.round == 1:  # the baseline get_ros_health was already run automatically; don't spend a step repeating it
             seen["get_ros_health" + json.dumps({}, sort_keys=True)] = [e.id for e in inv.ledger.items.values() if e.step == 1]
         llm_turns = 0
@@ -151,8 +160,9 @@ class Agent:
             reply = await self.chat(inv.messages, self.tools)
             inv.llm_calls += 1
             inv.llm_seconds += reply.seconds
+            inv.emit("llm_call", n=inv.llm_calls, tools=[tc.name for tc in reply.tool_calls], **reply.metrics)
             self._log(inv, "llm_call", seconds=round(reply.seconds, 1), tokens=reply.eval_tokens,
-                      tool_calls=[tc.name for tc in reply.tool_calls])
+                      tool_calls=[tc.name for tc in reply.tool_calls], **reply.metrics)
             for m in reply.malformed:
                 inv.emit("warning", text=f"Malformed model output ignored: {m}")
             if not reply.tool_calls:
@@ -173,7 +183,11 @@ class Agent:
                 if tc.name == "submit_diagnosis":
                     inv.transition(Phase.DIAGNOSING)
                     self._log(inv, "diagnosis_submitted", raw=tc.arguments)
-                    diag, errors = validate(tc.arguments, inv.ledger)
+                    if own_checks < MIN_OWN_CHECKS and not forced:
+                        diag, errors = None, [f"you have made {own_checks} check(s) of your own; make at least "
+                                              f"{MIN_OWN_CHECKS} direct checks (interfaces, status, TF, parameters) before concluding"]
+                    else:
+                        diag, errors = validate(tc.arguments, inv.ledger)
                     if diag is not None:
                         inv.diagnosis = diag.model_dump()
                         inv.diagnosed_at = time.time()
@@ -191,7 +205,7 @@ class Agent:
                     inv.messages.append({"role": "tool", "tool_name": tc.name,
                                          "content": "DIAGNOSIS REJECTED: " + " | ".join(errors)})
                     continue
-                args = {k: v for k, v in tc.arguments.items() if k != "reason"}
+                args = registry.normalize_args(tc.name, {k: v for k, v in tc.arguments.items() if k != "reason"})
                 reason = tc.arguments.get("reason") if isinstance(tc.arguments.get("reason"), str) else None
                 if forced:
                     inv.messages.append({"role": "tool", "tool_name": tc.name,
@@ -200,12 +214,15 @@ class Agent:
                 key = tc.name + json.dumps(args, sort_keys=True, default=str)
                 if key in seen:
                     steps += 1
+                    used = {k.split("{")[0] for k in seen}
+                    unused = [t for t in registry.READ_ONLY_TOOLS if t not in used]
                     inv.messages.append({"role": "tool", "tool_name": tc.name, "content": (
                         f"Duplicate call - you already have these findings: {', '.join(seen[key]) or 'none'}. "
-                        "Use a different tool or submit_diagnosis.")})
+                        f"Tools you have not used yet: {', '.join(unused)}.")})
                     continue
                 steps += 1
                 result, evidence = await self._run_tool(inv, tc.name, args, reason)
+                own_checks += 1
                 seen[key] = [e.id for e in evidence]
                 inv.messages.append({"role": "tool", "tool_name": tc.name,
                                      "content": format_for_llm(result, evidence)})
