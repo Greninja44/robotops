@@ -52,6 +52,13 @@ export interface Investigation {
   events: InvEvent[]
 }
 
+export interface Readiness {
+  ready: boolean; infra_ready: boolean; reason: string | null; infra_reason: string | null
+  warnings: string[]; preparing: string | null
+  chips: Record<'ros' | 'agent' | 'ollama' | 'model' | 'dds', string>
+  checks: { id: string; label: string; status: 'pass' | 'warn' | 'fail'; detail: string }[]
+}
+
 export interface Status {
   backend: string
   ros: { available: boolean; error: string | null }
@@ -82,6 +89,8 @@ export function useRobotOps() {
   const [connected, setConnected] = useState(false)
   const [status, setStatus] = useState<Status | null>(null)
   const [lastFault, setLastFault] = useState<{ fault: string; ts: number } | null>(null)
+  const [readiness, setReadiness] = useState<Readiness | null>(null)
+  const [preparing, setPreparing] = useState<string | null>(null)
   const invId = useRef<string | null>(null)
 
   const refresh = useCallback(async (id: string) => {
@@ -110,7 +119,15 @@ export function useRobotOps() {
           case 'hello':
             if (msg.health) setHealth(msg.health)
             if (msg.graph) setGraph(msg.graph)
+            if (msg.readiness) setReadiness(msg.readiness)
             if (msg.investigation) { invId.current = msg.investigation.id; setInv(msg.investigation) }
+            break
+          case 'readiness':
+            setReadiness(msg.readiness)
+            setPreparing(msg.readiness.preparing ?? null)
+            break
+          case 'prepare_step':
+            setPreparing(msg.text)
             break
           case 'system':
             setHealth(msg.health); setGraph(msg.graph)
@@ -133,6 +150,8 @@ export function useRobotOps() {
             break
           case 'demo_reset':
             setLastFault(null)
+            invId.current = null
+            setInv(null)
             break
         }
       }
@@ -151,5 +170,5 @@ export function useRobotOps() {
     return () => { alive = false; clearInterval(t) }
   }, [])
 
-  return { health, graph, inv, setInv, connected, status, lastFault, invId }
+  return { health, graph, inv, setInv, connected, status, lastFault, invId, readiness, preparing }
 }

@@ -2,6 +2,8 @@ import { useMemo } from 'react'
 import { api, useRobotOps, type Investigation } from './api'
 import { GraphPanel, type Marks } from './components/GraphPanel'
 import { Timeline } from './components/Timeline'
+import { ReadyBanner } from './components/Ready'
+import { Incident } from './components/Incident'
 import { AskPanel, FaultPanel, HealthBar, RepairPanel, RootCause, StatusPills, VerificationPanel } from './components/Panels'
 
 const TERMINAL = ['resolved', 'repair_failed', 'rejected', 'inconclusive', 'healthy', 'diagnosed', 'error']
@@ -27,8 +29,10 @@ function marksFor(inv: Investigation | null): Marks {
 }
 
 export default function App() {
-  const { health, graph, inv, connected, status, lastFault } = useRobotOps()
-  const busy = !!inv && !TERMINAL.includes(inv.phase)
+  const { health, graph, inv, connected, status, lastFault, readiness, preparing } = useRobotOps()
+  const running = !!inv && !TERMINAL.includes(inv.phase)
+  const locked = !readiness?.infra_ready || !!preparing      // model/ROS not ready: no demo controls
+  const busy = running || locked
   const marks = useMemo(() => marksFor(inv), [inv])
   const ask = async (q: string) => { await api('/api/investigations', { query: q }) }
 
@@ -46,11 +50,13 @@ export default function App() {
       </header>
 
       {!connected && <div className="banner">Backend disconnected — reconnecting…</div>}
+      <ReadyBanner readiness={readiness} preparing={preparing} health={health} inv={inv} connected={connected} />
       <HealthBar health={health} />
 
       <main>
         <div className="col-left">
-          <GraphPanel graph={graph} marks={marks} />
+          <GraphPanel graph={graph} marks={marks} recovered={inv?.phase === 'resolved'} />
+          <Incident inv={inv} />
           <div className="cards">
             <RootCause inv={inv} />
             <RepairPanel inv={inv} />
@@ -61,7 +67,7 @@ export default function App() {
           <section className="panel timeline-panel">
             <div className="panel-head">
               <h2>AI Investigation</h2>
-              {inv && <span className="muted small mono">{inv.tool_calls} tool calls · {inv.phase.replace('_', ' ')}{busy ? '' : inv.diagnosis_seconds ? ` · diagnosed in ${inv.diagnosis_seconds}s` : ''}</span>}
+              {inv && <span className="muted small mono">{inv.tool_calls} tool calls · {inv.phase.replace('_', ' ')}{running ? '' : inv.diagnosis_seconds ? ` · diagnosed in ${inv.diagnosis_seconds}s` : ''}</span>}
             </div>
             <AskPanel busy={busy} onAsk={ask} />
             <Timeline inv={inv} />

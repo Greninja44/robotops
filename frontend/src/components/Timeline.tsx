@@ -1,141 +1,168 @@
 import { useEffect, useRef } from 'react'
 import type { InvEvent, Investigation } from '../api'
 
-const TOOL_LABEL: Record<string, string> = {
-  get_ros_health: 'Inspecting ROS system health',
-  list_nodes: 'Listing ROS nodes',
-  list_topics: 'Listing ROS topics',
-  inspect_node: 'Inspecting node',
-  inspect_topic: 'Checking topic',
-  measure_topic_rate: 'Measuring topic rate',
-  check_tf: 'Checking TF transforms',
-  inspect_parameters: 'Reading parameters of',
-  get_recent_diagnostics: 'Reading /diagnostics',
-  get_recent_logs: 'Reading recent /rosout logs',
-  get_component_status: 'Checking process manager',
+type Chip = { text: string; tone?: 'ok' | 'bad' | 'warn' }
+
+const TITLE: Record<string, (a: Record<string, string>) => string> = {
+  get_ros_health: () => 'Inspect ROS graph',
+  list_nodes: () => 'List ROS nodes',
+  list_topics: () => 'List topics',
+  inspect_node: (a) => `Inspect ${a.node ?? 'node'}`,
+  inspect_topic: (a) => `Inspect ${a.topic ?? 'topic'}`,
+  measure_topic_rate: (a) => `Measure ${a.topic ?? 'topic'} rate`,
+  check_tf: (a) => (a.parent_frame ? `Check TF ${a.parent_frame}→${a.child_frame}` : 'Check TF transforms'),
+  inspect_parameters: (a) => `Read ${a.node ?? 'node'} parameters`,
+  get_recent_diagnostics: () => 'Read /diagnostics',
+  get_recent_logs: (a) => (a.node ? `Read ${a.node} logs` : 'Read recent logs'),
+  get_component_status: () => 'Check process status',
 }
 
-function argText(args: Record<string, unknown>) {
-  const v = Object.entries(args ?? {}).filter(([k]) => k !== 'duration' && k !== 'seconds').map(([, v]) => v)
-  return v.filter(Boolean).join(' → ')
-}
-
-type Item =
-  | { type: 'step'; call: InvEvent; result?: InvEvent }
-  | { type: 'event'; ev: InvEvent }
-
-function group(events: InvEvent[]): Item[] {
-  const items: Item[] = []
-  const byStep = new Map<number, Extract<Item, { type: 'step' }>>()
-  for (const ev of events) {
-    if (ev.kind === 'tool_call') {
-      const it = { type: 'step' as const, call: ev }
-      byStep.set(ev.step, it)
-      items.push(it)
-    } else if (ev.kind === 'tool_result') {
-      const it = byStep.get(ev.step)
-      if (it) it.result = ev
-    } else {
-      items.push({ type: 'event', ev })
+/** Real values from the tool's structured result, shown as compact chips (no invented numbers). */
+function liveValues(tool: string, args: Record<string, string>, d: Record<string, any>): Chip[] { // eslint-disable-line @typescript-eslint/no-explicit-any
+  try {
+    switch (tool) {
+      case 'get_ros_health': {
+        const miss: string[] = d.expected_nodes_missing ?? []
+        return [{ text: `${d.node_count} nodes · ${d.topic_count} topics` },
+          ...(miss.length ? [{ text: `missing ${miss.join(', ')}`, tone: 'bad' as const }] : [{ text: 'all expected nodes present', tone: 'ok' as const }])]
+      }
+      case 'list_nodes': {
+        const miss: string[] = d.expected_missing ?? []
+        return [{ text: `${d.count} nodes running` }, ...(miss.length ? [{ text: `${miss.join(', ')} missing`, tone: 'bad' as const }] : [])]
+      }
+      case 'list_topics':
+        return [{ text: `${Object.keys(d.topics ?? {}).length} active topics` }]
+      case 'inspect_topic': {
+        if (d.exists === false) return [{ text: `${args.topic} does not exist`, tone: 'bad' }]
+        return [{ text: `${d.publisher_count} publisher${d.publisher_count === 1 ? '' : 's'}`, tone: d.publisher_count ? 'ok' : 'bad' },
+          { text: `${d.subscriber_count} subscriber${d.subscriber_count === 1 ? '' : 's'}`, tone: d.subscriber_count ? 'ok' : 'bad' }]
+      }
+      case 'measure_topic_rate':
+        return [{ text: `${Number(d.rate_hz).toFixed(1)} Hz`, tone: d.rate_hz >= (d.expected_min_hz ?? 0) && d.rate_hz > 0 ? 'ok' : 'bad' },
+          ...(d.expected_min_hz ? [{ text: `min ${d.expected_min_hz} Hz` }] : [])]
+      case 'inspect_node':
+        return d.exists === false ? [{ text: 'NOT RUNNING', tone: 'bad' }]
+          : [{ text: `publishes ${Object.keys(d.publishes ?? {}).length}`, tone: 'ok' }, { text: `subscribes ${Object.keys(d.subscribes ?? {}).length}`, tone: 'ok' }]
+      case 'check_tf':
+        return Object.entries(d.transforms ?? {}).map(([k, v]: [string, any]) => // eslint-disable-line @typescript-eslint/no-explicit-any
+          v.available ? { text: `${k} ${Math.round(v.age_s * 1000)} ms`, tone: v.age_s < 1 ? 'ok' as const : 'bad' as const } : { text: `${k} unavailable`, tone: 'bad' as const })
+      case 'inspect_parameters':
+        return Object.entries(d.parameters ?? {}).slice(0, 2).map(([k, v]) => ({ text: `${k}=${String(v)}` }))
+      case 'get_recent_diagnostics': {
+        const st = Object.values(d.statuses ?? {}) as { level: string }[]
+        const bad = st.filter((x) => x.level !== 'OK').length
+        return [{ text: `${st.length - bad}/${st.length} OK`, tone: bad ? 'warn' : 'ok' }, ...(bad ? [{ text: `${bad} degraded`, tone: 'bad' as const }] : [])]
+      }
+      case 'get_recent_logs': {
+        const n = (d.entries ?? []).length
+        return [{ text: n ? `${n} warning/error log${n > 1 ? 's' : ''}` : 'no warnings', tone: n ? 'bad' : 'ok' }]
+      }
+      case 'get_component_status': {
+        const comps = Object.entries(d.components ?? {}) as [string, { state: string; exit_code: number | null }][]
+        const down = comps.filter(([, c]) => c.state !== 'running')
+        return down.length ? down.map(([n, c]) => ({ text: `${n} ${c.state} (exit ${c.exit_code})`, tone: 'bad' as const }))
+          : [{ text: `${comps.length}/${comps.length} processes running`, tone: 'ok' }]
+      }
     }
-  }
-  return items
+  } catch { /* fall through */ }
+  return []
 }
 
-const PHASE_TEXT: Record<string, string> = {
-  investigating: 'Investigating — the model chooses the next diagnostic tool',
-  diagnosing: 'Diagnosis submitted — validating against the evidence ledger',
-  awaiting_approval: 'Repair proposed — waiting for human approval',
-  repairing: 'Approved — executing repair',
-  verifying: 'Verifying recovery independently',
-  resolved: 'RECOVERY VERIFIED',
-  repair_failed: 'REPAIR FAILED — stopped safely',
-  rejected: 'Repair not approved — no action taken',
-  inconclusive: 'Inconclusive — insufficient evidence, no repair attempted',
-  healthy: 'No fault found',
-  diagnosed: 'Diagnosed — no repair recommended',
-  error: 'Stopped with an error',
+type Row = { state: 'done' | 'active' | 'pending' | 'failed'; title: string; chips?: Chip[]; note?: string; anomaly?: string; sub?: string; ms?: number }
+
+function buildRows(inv: Investigation): Row[] {
+  const rows: Row[] = []
+  const results = new Map<number, InvEvent>()
+  for (const e of inv.events) if (e.kind === 'tool_result') results.set(e.step, e)
+  for (const e of inv.events) {
+    if (e.kind !== 'tool_call') continue
+    const r = results.get(e.step)
+    const args = (e.args ?? {}) as Record<string, string>
+    const anomaly = r?.evidence?.find((x: { anomaly: boolean }) => x.anomaly)?.text as string | undefined
+    rows.push({
+      state: !r ? 'active' : r.success ? 'done' : 'failed', title: (TITLE[e.tool] ?? (() => e.tool))(args),
+      chips: r?.success ? liveValues(e.tool, args, r.data ?? {}) : [], anomaly: r?.success ? anomaly : undefined,
+      note: r && !r.success ? r.error : undefined, sub: e.reason && e.step > 1 ? e.reason : undefined, ms: r?.duration_ms,
+    })
+  }
+  const has = (k: string) => inv.events.some((e) => e.kind === k)
+  const phase = inv.phase
+  const investigating = ['observing', 'investigating', 'diagnosing'].includes(phase)
+  const d = inv.diagnosis
+  const timeout = [...inv.events].reverse().find((e) => e.kind === 'model_timeout')
+  if (investigating && !d && !rows.some((r) => r.state === 'active')) {
+    rows.push({ state: 'active', title: timeout && !timeout.final && inv.events.indexOf(timeout) > inv.events.length - 4 ? 'Model timed out — retrying' : 'Choosing next check', sub: 'the model picks the next diagnostic tool' })
+  }
+  rows.push({
+    state: d ? 'done' : ['inconclusive', 'error'].includes(phase) ? 'failed' : 'pending', title: 'Root cause identified',
+    chips: d ? [{ text: d.faulty_component, tone: 'bad' }, { text: `evidence score ${d.confidence.toFixed(2)}` }] : [],
+    note: phase === 'inconclusive' ? 'insufficient evidence — no repair attempted' : phase === 'error' ? inv.error ?? undefined : undefined,
+  })
+  const p = inv.proposal
+  const repaired = has('repair_started')
+  const rejected = phase === 'rejected'
+  rows.push({
+    state: repaired ? 'done' : rejected ? 'failed' : phase === 'awaiting_approval' ? 'active' : 'pending',
+    title: rejected ? 'Repair rejected' : repaired ? 'Repair approved' : 'Repair awaiting approval',
+    chips: p ? [{ text: `${p.action} ${p.target}` }, { text: `risk ${p.risk}`, tone: p.risk === 'low' ? 'ok' : 'warn' }] : [],
+  })
+  const v = inv.verification
+  rows.push({
+    state: v?.verified ? 'done' : phase === 'repair_failed' ? 'failed' : ['repairing', 'verifying'].includes(phase) ? 'active' : 'pending',
+    title: v?.verified ? 'Recovery verified' : phase === 'repair_failed' ? 'Recovery NOT verified' : 'Recovery verification',
+    chips: v ? [{ text: `${v.checks.filter((c) => c.passed).length}/${v.checks.length} checks passed`, tone: v.verified ? 'ok' : 'bad' }] : [],
+  })
+  return rows
 }
+
+const ICON = { done: '✓', active: '●', pending: '○', failed: '✕' }
 
 export function Timeline({ inv }: { inv: Investigation | null }) {
   const end = useRef<HTMLDivElement>(null)
   const n = inv?.events.length ?? 0
   useEffect(() => { end.current?.scrollIntoView({ behavior: 'smooth', block: 'nearest' }) }, [n])
 
-  if (!inv) {
-    return <div className="timeline empty">No investigation yet. Inject a fault, then ask RobotOps what is wrong.</div>
-  }
-  const running = !['resolved', 'repair_failed', 'rejected', 'inconclusive', 'healthy', 'diagnosed', 'error'].includes(inv.phase)
-  const items = group(inv.events)
+  if (!inv) return <div className="timeline empty">No investigation yet. Inject a fault, then ask RobotOps what is wrong.</div>
+  const rows = buildRows(inv)
+  const alerts = inv.events.filter((e) => e.kind === 'model_timeout' || e.kind === 'diagnosis_rejected' || e.kind === 'warning' || e.kind === 'error')
   return (
     <div className="timeline">
       <div className="tl-query">“{inv.query}”</div>
-      {items.map((it, i) => it.type === 'step' ? <Step key={i} call={it.call} result={it.result} /> : <EventRow key={i} ev={it.ev} />)}
-      {running && inv.phase === 'investigating' && !items.some((it) => it.type === 'step' && !it.result) && (
-        <div className="tl-row thinking"><span className="dot pulse" />Model is choosing the next check…</div>
-      )}
+      <ol className="steps">
+        {rows.map((r, i) => (
+          <li key={i} className={`step s-${r.state}`}>
+            <span className="num mono">{String(i + 1).padStart(2, '0')}</span>
+            <span className="ico">{r.state === 'active' ? <span className="spinner" /> : ICON[r.state]}</span>
+            <div className="body">
+              <div className="title">{r.title}{r.ms !== undefined && <em className="mono">{r.ms} ms</em>}</div>
+              {r.chips && r.chips.length > 0 && <div className="chips-row">{r.chips.map((c, j) => <span key={j} className={`vchip ${c.tone ?? ''}`}>{c.text}</span>)}</div>}
+              {r.anomaly && <div className="anomaly">{r.anomaly}</div>}
+              {r.sub && <div className="sub">{r.sub}</div>}
+              {r.note && <div className="note-bad">{r.note}</div>}
+            </div>
+          </li>
+        ))}
+      </ol>
+      {alerts.map((e, i) => <Alert key={i} ev={e} />)}
       <div ref={end} />
     </div>
   )
 }
 
-function Step({ call, result }: { call: InvEvent; result?: InvEvent }) {
-  const failed = result && !result.success
-  const anomalies = result?.evidence?.filter((e: { anomaly: boolean }) => e.anomaly).length ?? 0
-  return (
-    <div className={`tl-step ${!result ? 'pending' : failed ? 'failed' : anomalies ? 'anomalous' : 'clean'}`}>
-      <div className="tl-step-head">
-        <span className="tl-icon">{!result ? <span className="spinner" /> : failed ? '✕' : '✓'}</span>
-        <span className="tl-title">{TOOL_LABEL[call.tool] ?? call.tool} <b>{argText(call.args)}</b></span>
-        <span className="tl-tool mono">{call.tool}{result ? ` · ${result.duration_ms} ms` : ''}</span>
-      </div>
-      {call.reason && <div className="tl-reason">Hypothesis: {call.reason}</div>}
-      {failed && <div className="tl-err">{result.error}</div>}
-      {result && result.evidence?.length > 0 && (
-        <ul className="tl-evidence">
-          {result.evidence.map((e: { id: string; text: string; anomaly: boolean }) => (
-            <li key={e.id} className={e.anomaly ? 'anom' : ''}>
-              <span className="eid mono">{e.id}</span>{e.text}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  )
-}
-
-function EventRow({ ev }: { ev: InvEvent }) {
+function Alert({ ev }: { ev: InvEvent }) {
   switch (ev.kind) {
-    case 'phase': {
-      const t = PHASE_TEXT[ev.phase]
-      if (!t || ev.phase === 'investigating' && ev.previous === 'observing') return null
-      const cls = ev.phase === 'resolved' ? 'good' : ['repair_failed', 'error', 'inconclusive'].includes(ev.phase) ? 'bad' : ''
-      return <div className={`tl-phase ${cls}`}>{t}{ev.reason && ev.phase !== 'resolved' ? ` · ${ev.reason}` : ''}</div>
-    }
-    case 'note':
-      return <div className="tl-row note">● {ev.text}</div>
-    case 'warning':
-      return <div className="tl-row warn">⚠ {ev.text}</div>
-    case 'error':
-      return <div className="tl-row bad">✕ {ev.message}</div>
+    case 'model_timeout':
+      return ev.final
+        ? <div className="alert bad"><b>MODEL RESPONSE TIMEOUT</b> — no response after {ev.timeout_s}s and one retry. Investigation stopped safely; nothing was changed.</div>
+        : <div className="alert warn"><b>MODEL RESPONSE TIMEOUT</b> — no response after {ev.timeout_s}s. Retrying investigation…</div>
     case 'diagnosis_rejected':
       return (
-        <div className="tl-rejected">
-          <b>Evidence validator rejected the diagnosis</b>
-          <ul>{ev.errors.map((e: string, i: number) => <li key={i}>{e}</li>)}</ul>
-          <span className="muted">The agent was told why and continues investigating.</span>
-        </div>
+        <div className="alert warn"><b>Evidence check</b> — diagnosis not accepted yet: {ev.errors[0]}<span className="muted"> The agent continues investigating.</span></div>
       )
-    case 'diagnosis':
-      return <div className="tl-row good">✓ Root cause identified: <b>{ev.diagnosis.faulty_component}</b> (evidence score {ev.diagnosis.confidence.toFixed(2)})</div>
-    case 'approval':
-      return <div className={`tl-row ${ev.state === 'approved' ? 'good' : 'bad'}`}>{ev.state === 'approved' ? '✓' : '✕'} Proposal {ev.state} by {ev.decided_by ?? 'nobody'}</div>
-    case 'repair_started':
-      return <div className="tl-row note"><span className="spinner" /> Executing {ev.action} on <b>{ev.target}</b></div>
-    case 'repair_result':
-      return <div className={`tl-row ${ev.executed ? 'good' : 'bad'}`}>{ev.executed ? '✓ Process manager restarted the component' : `✕ Repair not executed: ${ev.error}`} — exit code alone is not success; verifying…</div>
-    case 'verification_attempt':
-      return <div className={`tl-row ${ev.failed.length ? 'warn' : 'good'}`}>Verification pass {ev.attempt}: {ev.passed}/{ev.total} checks passed{ev.failed.length ? ` — waiting on ${ev.failed.slice(0, 2).join('; ')}` : ''}</div>
+    case 'warning':
+      return <div className="alert warn">{ev.text}</div>
+    case 'error':
+      return <div className="alert bad">{ev.message}</div>
     default:
       return null
   }
