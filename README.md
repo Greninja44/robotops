@@ -20,7 +20,7 @@ Robot stops  →  RobotOps investigates ROS  →  Controller failure identified 
 |---|---|
 | **Team** | Bluey |
 | **Member** | Adarsh D |
-| **Hackathon** | _add hackathon name here_ |
+| **Hackathon** | CypherAI|
 
 Reviewing this repository? The [submission audit](docs/SUBMISSION_AUDIT.md) answers the usual questions (problem, where AI is used, safety, evidence, how to run) with links.
 
