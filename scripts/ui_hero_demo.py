@@ -37,18 +37,25 @@ def incident_card(pg) -> dict:
                        " dl.querySelectorAll('dt').forEach(dt => { o[dt.innerText] = dt.nextElementSibling.innerText }); return o }")
 
 
-def one_run(pg, n: int, shots: Path | None) -> dict:
+def one_run(pg, n: int, shots: Path | None, dwell: bool = False) -> dict:
+    """dwell=True (used for recordings) adds short reading pauses at key states and skips Start demo (the caller prepared the system);
+    every click, every state and every number on screen is still the real system."""
     rec = {"run": n, "ok": False, "stage": "start"}
     t = {}
+    pause = (lambda ms: pg.wait_for_timeout(ms)) if dwell else (lambda ms: None)
     try:
-        rec["stage"] = "wait for Start demo"
-        pg.wait_for_selector('[data-testid="start-demo"]:not([disabled])', timeout=120000)
-        rec["stage"] = "start demo"
-        t0 = time.time()
-        pg.locator('[data-testid="start-demo"]').click()
-        wait_state(pg, "preparing", 15)
-        wait_state(pg, "ready", 120)
-        rec["prepare_s"] = round(time.time() - t0, 1)
+        if dwell:
+            wait_state(pg, "ready", 60)
+            pause(2500)
+        else:
+            rec["stage"] = "wait for Start demo"
+            pg.wait_for_selector('[data-testid="start-demo"]:not([disabled])', timeout=120000)
+            rec["stage"] = "start demo"
+            t0 = time.time()
+            pg.locator('[data-testid="start-demo"]').click()
+            wait_state(pg, "preparing", 15)
+            wait_state(pg, "ready", 120)
+            rec["prepare_s"] = round(time.time() - t0, 1)
         if shots and n == 1:
             pg.screenshot(path=str(shots / "01_ready.png"))
 
@@ -58,11 +65,13 @@ def one_run(pg, n: int, shots: Path | None) -> dict:
         wait_state(pg, "fault", 40)
         rec["fault_visible_s"] = round(time.time() - t["inject"], 1)
         pg.wait_for_timeout(1500)
+        pause(2000)
         if shots and n == 1:
             pg.screenshot(path=str(shots / "02_fault.png"))
 
         rec["stage"] = "investigate"
         pg.locator('[data-testid="query"]').fill(QUERY)
+        pause(1200)
         t["ask"] = time.time()
         pg.locator('[data-testid="run"]').click()
         wait_state(pg, "investigating", 15)
@@ -71,6 +80,7 @@ def one_run(pg, n: int, shots: Path | None) -> dict:
         approve = pg.locator('[data-testid="approve"]')
         approve.wait_for(state="visible", timeout=90000)
         rec["to_proposal_s"] = round(time.time() - t["ask"], 1)
+        pause(4500)
         if shots and n == 1:
             pg.wait_for_timeout(800)
             pg.screenshot(path=str(shots / "03_approval.png"))
@@ -83,6 +93,7 @@ def one_run(pg, n: int, shots: Path | None) -> dict:
         rec["approve_to_resolved_s"] = round(time.time() - t["approve"], 1)
         rec["ask_to_resolved_s"] = round(time.time() - t["ask"], 1)
         pg.wait_for_timeout(600)
+        pause(6000)
         rec["incident"] = incident_card(pg)
         if shots and n == 1:
             pg.screenshot(path=str(shots / "04_resolved.png"))
@@ -119,18 +130,43 @@ def one_run(pg, n: int, shots: Path | None) -> dict:
     return rec
 
 
+def record(exe, out: Path, shots: Path | None):
+    """Record one real hero run of the real dashboard (Playwright video of the browser session)."""
+    import shutil
+    import tempfile
+    httpx.post(f"{URL}/api/demo/prepare", json={}, timeout=120)       # healthy, warm start (not part of the recording)
+    size = {"width": 1440, "height": 900}
+    tmp = tempfile.mkdtemp()
+    with sync_playwright() as p:
+        b = p.chromium.launch(executable_path=exe, args=["--no-sandbox"])
+        ctx = b.new_context(viewport=size, record_video_dir=tmp, record_video_size=size)
+        pg = ctx.new_page()
+        pg.goto(URL)
+        r = one_run(pg, 1, shots, dwell=True)
+        video = pg.video
+        ctx.close()                                   # finalises the video file
+        out.parent.mkdir(parents=True, exist_ok=True)
+        shutil.move(video.path(), str(out))
+        b.close()
+    print(f"recorded {out} ({out.stat().st_size // 1024} KB); run ok={r['ok']} diagnosis={r.get('diagnosis_s')} s total={r.get('ask_to_resolved_s')} s")
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--runs", type=int, default=10)
     ap.add_argument("--stop-on-fail", action="store_true")
     ap.add_argument("--shots", default="")
     ap.add_argument("--out", default="")
+    ap.add_argument("--video", default="", help="record ONE real run to this .webm file (prepares the system first, adds reading pauses)")
     a = ap.parse_args()
     shots = Path(a.shots) if a.shots else None
     if shots:
         shots.mkdir(parents=True, exist_ok=True)
     exe = (glob.glob(os.path.expanduser("~/.cache/ms-playwright/chromium-*/chrome-linux64/chrome")) or [None])[-1]
     results = []
+    if a.video:
+        record(exe, Path(a.video), shots)
+        return
     with sync_playwright() as p:
         b = p.chromium.launch(executable_path=exe, args=["--no-sandbox"])
         pg = b.new_page(viewport={"width": 1600, "height": 1000})
