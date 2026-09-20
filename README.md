@@ -21,9 +21,7 @@ Robot stops  →  RobotOps investigates ROS  →  Controller failure identified 
 | **Team** | Bluey |
 | **Member** | Adarsh D |
 | **Hackathon** | CypherAI |
-| **Status** | Feature-complete demo, feature-frozen. CI runs the fast tests and the dashboard build ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). |
 
-Reviewing this repository? The [submission audit](docs/SUBMISSION_AUDIT.md) answers the usual questions (problem, where AI is used, safety, evidence, how to run) with links.
 
 ## Problem statement
 
