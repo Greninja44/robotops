@@ -11,7 +11,18 @@
 - Readiness: `./run_demo.sh` (cold -> READY in ~42 s, blocking model warm-up), `./demo_preflight.sh` (DEMO READY / NOT READY, exit code), dashboard READY FOR DEMO
   banner + chips + START DEMO gate; MODEL RESPONSE TIMEOUT / retry shown in the timeline.
 - Dashboard: numbered stage timeline with live values, incident summary card (measured values only), affected-region highlight, RECOVERY VERIFIED badge.
-- Tests: 117 fast (`pytest -m "not ros"`), 19 live-ROS (`-m ros`, all passing on the final code, 3 min 54 s). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
+- Tests: 123 fast (`pytest -m "not ros"`), 19 live-ROS (`-m ros`, all passing on the final code, 3 min 54 s). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
+
+## RELIABILITY INCIDENTS FOUND BY SOAK TESTING (all with evidence in the repo)
+- **ROS client executor crash** (found 06:21): the backend's rclpy executor died with `cannot use Destroyable because destruction was requested`
+  (a race between `sample_topic` destroying subscriptions and the executor); every health card went UNKNOWN and START DEMO stayed disabled until a restart.
+  Fixed: the spin loop now survives and counts such races (`RosClient.spin_errors`), and reports the client broken only after ~4 s of continuous errors.
+  My first version of that fix had its own bug (the loop exited because it was tied to a flag set after the thread started, so the client saw the graph but received no data);
+  found by a 40-iteration stress test, fixed, and a regression test now reproduces the real start ordering. The race itself did not re-trigger in the stress test, so the
+  survival path is covered by unit tests, not a live reproduction.
+- **One unexplained failure**: in one hero run the dashboard's health read FAILED right after RECOVERY VERIFIED (24/24 checks, correct diagnosis). It did not reproduce in 24
+  further recoveries (20 UI hero runs + 4 API probes). The dashboard health log (`logs/backend.log`, `[health ...]` lines) and the hero harness now record the component details if it
+  recurs. Across ~36 UI hero runs on the final code: 35 fully clean, 1 with that anomaly. The monitor's rate estimator was also made more responsive after restarts.
 
 ## PARTIALLY WORKING / KNOWN LIMITS
 - Small model (qwen3:4b): can hallucinate a cause; the validator rejects it (no wrong repair) but a run can end inconclusive. Process rules are enforced in code
