@@ -8,7 +8,7 @@
     "query": "Diagnose the robot.",
     "machine": {
       "warnings": [
-        "Background processes: pid 108703 169% CPU .venv/bin/python -m evaluation.closed_loop --policy; pid 108704 166% CPU .venv/bin/python -m evaluation.closed_loop --policy"
+        "Background processes: pid 108703 169% CPU <unrelated Python evaluation job>; pid 108704 166% CPU <unrelated Python evaluation job>"
       ],
       "snapshot": {
         "loadavg_1m": 4.85,
@@ -28,7 +28,7 @@
           "id": "dds_config",
           "label": "CycloneDDS config (WSL2 fragmentation)",
           "status": "pass",
-          "detail": "/home/batman/robotops/config/cyclonedds.xml"
+          "detail": "<repo>/config/cyclonedds.xml"
         },
         {
           "id": "ros_client",
@@ -106,7 +106,7 @@
           "id": "background",
           "label": "Background processes",
           "status": "warn",
-          "detail": "pid 108703 169% CPU .venv/bin/python -m evaluation.closed_loop --policy; pid 108704 166% CPU .venv/bin/python -m evaluation.closed_loop --policy"
+          "detail": "pid 108703 169% CPU <unrelated Python evaluation job>; pid 108704 166% CPU <unrelated Python evaluation job>"
         },
         {
           "id": "injector",

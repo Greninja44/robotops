@@ -59,6 +59,9 @@ Resulting latency through the **real dashboard** on the final code (`ui_hero_dem
 approve -> recovered 5.4 s, START DEMO preparation 8.7 s, every run 24/24 verification checks, 0 model timeouts.
 The UI + API overhead between "diagnosis accepted" and "proposal visible" is ~0.2-0.6 s.
 
+Final acceptance on merged `main` after a cold start (`benchmarks/hero/hero_acceptance_20260920_0636.json`, 10 consecutive runs, 10/10): diagnosis **median 10.6 s (7.5-11.3)**,
+ask -> recovered median 16.4 s (max 17.1), approve -> recovered 5.4 s, 24/24 checks each, 0 timeouts. This is the figure quoted in the README; the run above is an earlier one of the same kind.
+
 Clean-state benchmark on the generic query *"Diagnose the robot."* (`benchmarks/results_20260920_052452.json`, 15 runs, 5 faults x 3, direct agent,
 run while an unrelated job loaded the machine): **15/15 correct, 15/15 repaired and verified, 0 inconclusive, 0 timeouts; diagnosis median 4.7 s,
 p95 9.1 s, max 9.1 s**, median 3 tool calls / 3 model calls. It is faster than the hero path because that query leads the model to a 2-check route
@@ -87,7 +90,7 @@ Shortening the settle time would save ~1.5 s but risks a failed first verificati
 ## 5. What limits it now, honestly
 
 * ~1.3-2.1 s per model call at ~50 tokens/s, 4-5 calls: the floor for this model on this GPU. A larger model would be slower.
-* The GPU and CPU are shared with the Windows desktop and with an unrelated `tinyrdt` evaluation job (about 330 % CPU and a large share of GPU
+* The GPU and CPU are shared with the Windows desktop and with an unrelated CPU/GPU-heavy evaluation job (about 330 % CPU and a large share of GPU
   utilisation) that was running during most of these measurements, including the 15-run benchmark (its machine check and per-run load are
   recorded in the result file). The numbers quoted here were therefore taken on a *busy* machine; a quiet one should be equal or better, but that was not measured.
 * The model has habits: it opens with `get_recent_diagnostics` in 14 of 15 random runs, and with a fixed seed the same fault gives

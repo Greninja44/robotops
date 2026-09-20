@@ -28,7 +28,7 @@
 ## PARTIALLY WORKING / KNOWN LIMITS
 - Small model (qwen3:4b): can hallucinate a cause; the validator rejects it (no wrong repair) but a run can end inconclusive. Process rules are enforced in code
   because the model otherwise loops. It opens with `get_recent_diagnostics` in nearly every run; sequences are repeatable for a given fault (fixed seed).
-- The machine is shared: an unrelated `tinyrdt` evaluation job (2 processes, ~330 % CPU, part of the GPU) ran during the benchmark and most tests. The preflight and the
+- The machine is shared: an unrelated CPU/GPU-heavy evaluation job (2 processes, ~330 % CPU, part of the GPU) ran during the benchmark and most tests. The preflight and the
   benchmark report it; it is never killed. Numbers are therefore pessimistic if anything.
 - DDS on WSL2 needs `config/cyclonedds.xml`; discovery can hiccup under heavy load.
 - Only `restart_component` is a repair primitive.
