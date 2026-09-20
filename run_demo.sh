@@ -34,7 +34,7 @@ echo
 if ./demo_preflight.sh; then
   echo
   echo "Open  http://127.0.0.1:8000   and press START DEMO."
-  echo "  stop: ./stop_demo.sh    re-check: ./demo_preflight.sh    verify: ./verify_demo.sh [--full]"
+  echo "  stop: ./scripts/stop_all.sh    re-check: ./demo_preflight.sh    verify: ./scripts/verify_demo.sh [--full]"
 else
   echo
   echo "RobotOps started but is NOT ready - fix the reason above, then re-run ./demo_preflight.sh"

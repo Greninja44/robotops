@@ -1,0 +1,12 @@
+# Python dependencies of RobotOps (versions are the ones the project was developed and tested with).
+# ROS 2 itself (rclpy, tf2_ros, rmw_cyclonedds_cpp) is NOT a pip package: it comes from the ROS 2 install
+# (`source /opt/ros/<distro>/setup.bash`), and the virtualenv must be created with --system-site-packages
+# to see it.  scripts/setup.sh does all of this.
+fastapi>=0.141
+uvicorn[standard]>=0.53
+httpx>=0.28
+pydantic>=2.13
+pytest>=9.1
+pytest-asyncio>=1.4
+# only for the UI harnesses (scripts/ui_*.py: screenshots, recordings, reliability runs); the app itself does not need it
+playwright>=1.63
