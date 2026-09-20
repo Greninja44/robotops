@@ -21,6 +21,7 @@ Robot stops  →  RobotOps investigates ROS  →  Controller failure identified 
 | **Team** | Bluey |
 | **Member** | Adarsh D |
 | **Hackathon** | _add hackathon name here_ |
+| **Status** | Feature-complete demo, feature-frozen. CI runs the fast tests and the dashboard build ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)). |
 
 Reviewing this repository? The [submission audit](docs/SUBMISSION_AUDIT.md) answers the usual questions (problem, where AI is used, safety, evidence, how to run) with links.
 
@@ -40,6 +41,17 @@ Each step depends on what the last one showed, the symptoms are far from the cau
 A local LLM decides which read-only ROS check to run next; code turns every result into numbered evidence and rejects any diagnosis that is not backed by it;
 a person approves the one allowlisted repair (`restart_component`); and RobotOps then re-measures the whole robot (24 checks) before it reports recovery.
 In the demo, a crashed controller is found, explained with cited evidence, restarted and verified in about 16 s from the question to recovery (median of 10 runs).
+
+### At a glance
+
+| | |
+|---|---|
+| **Input** | a live ROS 2 graph (nodes, topics, rates, TF, diagnostics, logs) and a question such as *"Robot stopped moving. Diagnose it."* |
+| **AI's job** | choose the next read-only check, form a hypothesis, write a diagnosis that cites evidence IDs (local `qwen3:4b`, no cloud, no API key) |
+| **Code's job** | run the checks, number the evidence, validate every citation, gate the repair behind human approval, execute only allowlisted repairs, verify recovery |
+| **Output** | root cause with cited evidence, a guarded repair proposal, and a verified recovery report (24 independent checks) |
+| **Proof** | real recording above · hero 10/10 · random hidden fault 15/15 on the five-fault set · 143 fast + 19 live-ROS tests · raw data in [`benchmarks/`](benchmarks) |
+| **Run it** | `./scripts/setup.sh` → `./run_demo.sh` → <http://127.0.0.1:8000> ([Quick start](#quick-start)) |
 
 ## What RobotOps does
 
@@ -196,7 +208,21 @@ Everything below was measured on the demo robot in this repository, on one lapto
 | Hero diagnosis time (query → accepted diagnosis) | **10.6 s median** (7.5–11.3 s) | hero acceptance file |
 | Hero query → recovery verified | 16.4 s median (max 17.1 s); approval → verified 5.4 s median | hero acceptance file |
 | Clean-state benchmark, generic query *"Diagnose the robot."*, 5 faults × 3 | 15/15 correct, repaired, verified; diagnosis median 4.7 s, p95 9.1 s (n = 15) | [`benchmarks/results_20260920_052452.md`](benchmarks/results_20260920_052452.md) |
-| Automated tests | 142 fast tests (124 behaviour, 18 documentation checks) + 19 live-ROS tests, all passing | `pytest tests` |
+| Automated tests | 143 fast tests (124 behaviour, 19 documentation checks) + 19 live-ROS tests, all passing | `pytest tests` |
+
+<details>
+<summary>Per-fault detail of the 15-run benchmark (3 runs per fault, generic query, real model choices)</summary>
+
+| Fault | Diagnosed component (3/3 correct) | Tools the model chose after the baseline | Diagnosis time |
+|---|---|---|---|
+| Controller crash | `base_controller` | `list_nodes → list_topics` | 4.4–4.5 s |
+| LiDAR failure | `lidar_driver` | `get_recent_diagnostics → check_tf → measure_topic_rate` | 8.6–9.1 s |
+| TF failure | `tf_broadcaster` | `get_recent_diagnostics → check_tf` | 4.7–4.9 s |
+| Topic mismatch | `base_controller` | `get_recent_diagnostics → inspect_node` (first run also `list_topics → list_nodes`) | 4.3–7.0 s |
+| Node crash | `obstacle_monitor` | `list_nodes → list_topics` | 4.5–5.0 s |
+
+All 15 runs were repaired (auto-approved in benchmark mode) and verified 24/24. Full per-run table: [`benchmarks/results_20260920_052452.md`](benchmarks/results_20260920_052452.md).
+</details>
 
 **Methodology.** *Hero* runs drive the real dashboard with real clicks (Start demo → inject Controller Failure → ask *"Robot stopped moving. Diagnose it."* → approve) and read the outcome from the UI and API.
 *Random* runs inject a hidden random fault and ask the generic query; correctness is scored against the supervisor's ground truth, which the agent never sees.
@@ -231,7 +257,7 @@ cd robotops
 ./demo_preflight.sh         # prints "ROBOTOPS DEMO READY"
 ```
 
-Then open **http://127.0.0.1:8000**. Stop everything with `./scripts/stop_all.sh`.
+Then open **http://127.0.0.1:8000**. Stop everything with `./scripts/stop_all.sh`. Something not ready? `./demo_preflight.sh` names the failing check; [docs/SETUP.md](docs/SETUP.md#troubleshooting) has the fixes.
 
 ## Reproduce the demo
 
@@ -249,8 +275,10 @@ The same sequence, scripted: `.venv/bin/python scripts/ui_hero_demo.py --runs 1`
 
 ## Testing
 
+The fast suite and the dashboard build also run in CI on every push and pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)); the live-ROS tests and benchmarks need ROS 2 and Ollama, so they run locally.
+
 ```bash
-.venv/bin/python -m pytest tests -m "not ros"       # 142 fast tests (~10 s): validator, state machine, safety policy, approvals, no-fault-leak, timeouts, API, docs links
+.venv/bin/python -m pytest tests -m "not ros"       # 143 fast tests (~10 s): validator, state machine, safety policy, approvals, no-fault-leak, timeouts, API, docs links
 ./scripts/start_demo.sh
 .venv/bin/python -m pytest tests -m ros             # 19 live tests against the running ROS 2 demo robot (~4 min)
 ./scripts/verify_demo.sh --full                     # end-to-end: services, ROS health, tools, fault injection, full diagnose → repair → verify loop
@@ -295,6 +323,10 @@ run_demo.sh, demo_preflight.sh
 
 Nav2 / `ros2_control` controller integration · hardware robots · a larger fault library (parameters, lifecycle nodes, sensor drift) · fleet monitoring · incident memory (learning from past incidents) · more guarded repair primitives (allowlisted parameter changes) · learning the healthy manifest from a baseline recording.
 
+## License
+
+_No licence has been added yet: add one before publishing (see [docs/GITHUB_SUBMISSION.md](docs/GITHUB_SUBMISSION.md))._
+
 ## More documentation
 
-[docs/SETUP.md](docs/SETUP.md) (setup, configuration, troubleshooting) · [docs/DESIGN.md](docs/DESIGN.md) · [docs/PERFORMANCE.md](docs/PERFORMANCE.md) · [docs/RECORDING.md](docs/RECORDING.md) · [docs/STATUS.md](docs/STATUS.md) · [docs/SUBMISSION_AUDIT.md](docs/SUBMISSION_AUDIT.md)
+[docs/SETUP.md](docs/SETUP.md) (setup, configuration, troubleshooting) · [docs/DESIGN.md](docs/DESIGN.md) · [docs/PERFORMANCE.md](docs/PERFORMANCE.md) · [docs/RECORDING.md](docs/RECORDING.md) · [docs/STATUS.md](docs/STATUS.md) · [docs/SUBMISSION_AUDIT.md](docs/SUBMISSION_AUDIT.md) · [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
