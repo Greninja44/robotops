@@ -40,6 +40,8 @@ FAULTS = {
     "tf_failure": "TF broadcaster hangs (process alive, no transforms)",
     "topic_misconfig": "base controller relaunched with wrong cmd_vel topic",
     "node_crash": "obstacle monitor process crashes",
+    "commander_stall": "velocity commander hangs (process alive, no /cmd_vel; the node the robot never checks first)",
+    "odometry_stall": "wheel odometry hangs (process alive, no /odom, odom->base_link transform goes stale)",
 }
 
 
@@ -133,6 +135,10 @@ class Supervisor:
                 self._signal("tf_broadcaster")
             elif fault == "node_crash":
                 self._signal("obstacle_monitor")
+            elif fault == "commander_stall":
+                self._signal("velocity_commander")
+            elif fault == "odometry_stall":
+                self._signal("wheel_odometry")
             elif fault == "topic_misconfig":
                 self._stop("base_controller")
                 self._spawn("base_controller", ["-p", "cmd_vel_topic:=/cmd_vel_nav"])

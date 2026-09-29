@@ -201,9 +201,12 @@ anomalies, not the model's own confidence. The model's private reasoning is neve
 | TF failure | `tf_broadcaster` hangs: `base_link → laser` transform goes stale while `/scan` still runs at 10 Hz | `restart_component tf_broadcaster` |
 | Topic mismatch | `base_controller` relaunched listening on `/cmd_vel_nav`: node alive, `/cmd_vel` has 0 subscribers, `/cmd_vel_nav` has 0 publishers | `set_parameter base_controller` (live fix, no restart) or `restart_component base_controller` |
 | Node crash | `obstacle_monitor` exits: node missing, `/scan` lost its subscriber, `/obstacle_distance` gone | `restart_component obstacle_monitor` |
+| Commander stall *(new)* | `velocity_commander` hangs: `/cmd_vel` at 0 Hz, but `base_controller` (which complains about it) is not the cause - a real multi-hop trace | `restart_component velocity_commander` |
+| Odometry stall *(new)* | `wheel_odometry` hangs: `/odom` at 0 Hz and `odom → base_link` goes stale, while `base_link → laser` and the rest of the robot stay healthy | `restart_component wheel_odometry` |
 | **Random failure** | one of the above, chosen by the supervisor; its identity is **hidden from the agent** and not returned by the API | whichever the evidence supports |
 
 The repair column describes what the *correct* outcome is; the agent is never told it. Faults are injected into a real, running rclpy demo robot (6 nodes, real DDS traffic), not simulated in the UI.
+*(new)* marks the two faults added after the original submission; verified directly against the live robot (real symptoms confirmed: topic rates, diagnostics, TF) but not yet part of the measured 15/15 acceptance/benchmark numbers below, which predate them.
 
 **A second, narrower repair primitive.** `base_controller` accepts a live `cmd_vel_topic` parameter update (`ros2 param set`, no process restart) as well as a
 restart — a real second option for topic mismatch, not a simulated one: exercised directly against the live node (`ros2 topic hz` on `/cmd_vel` recovers
@@ -331,7 +334,7 @@ run_demo.sh, demo_preflight.sh
 # Limitations
 
 - **Demo topology.** The robot is a lightweight rclpy simulation of failure modes (6 nodes, real DDS), not hardware, Gazebo or Nav2. The tool layer is generic (graph, topic, TF, parameter, diagnostics, log inspection); the graph layout of the dashboard is written for this robot. The healthy-reference manifest (`demo_robot/manifest.json`) can be derived from a live observation (`scripts/learn_manifest.py`) rather than written by hand — used for real on this repo's robot, it found a real gap (a declared parameter the hand-written version had missed) — but which node broadcasts which TF edge still needs a human when more than one node publishes to `/tf` (tf2 does not expose that reliably), and prose fields (`role`, `description`) are never invented.
-- **Narrow repair primitives.** `restart_component` (six components) and one `set_parameter` fix (`base_controller.cmd_vel_topic` only). Together they fit these five faults; neither fixes a hardware fault, and the model does not reliably prefer `set_parameter` over a restart even when it applies (see [Fault scenarios](#fault-scenarios)).
+- **Narrow repair primitives.** `restart_component` (six components) and one `set_parameter` fix (`base_controller.cmd_vel_topic` only). Between them they fit every fault in the table above; neither fixes a hardware fault, and the model does not reliably prefer `set_parameter` over a restart even when it applies (see [Fault scenarios](#fault-scenarios)).
 - **Small model.** `qwen3:4b` can misread evidence (it once read "40 messages in 4.0 s" as 4 Hz). The validator rejected that diagnosis, so no wrong repair ran, but a run can then end *inconclusive*. It also has habits (it opens with `get_recent_diagnostics` in most runs), and several process rules (own checks before concluding, no repeated tools) are enforced in code because the model otherwise loops.
 - **Bounded fault set.** The measurements cover the five injected failure modes only. Behaviour on unfamiliar failures is untested; the design intent is *inconclusive, no repair*, not a guess.
 - **Platform.** Developed on WSL2, where DDS needs the fragmentation settings in [`config/cyclonedds.xml`](config/cyclonedds.xml); discovery can hiccup when the machine is heavily loaded. Only ROS 2 Lyrical on Linux/WSL2 was tested. The GPU is shared with other work on the same machine.
@@ -339,7 +342,7 @@ run_demo.sh, demo_preflight.sh
 
 # Future work
 
-Nav2 / `ros2_control` controller integration · hardware robots · a larger fault library (lifecycle nodes, sensor drift) · fleet monitoring · incident memory (learning from past incidents) · more guarded repair primitives (more allowlisted parameters) · automatic TF-broadcaster attribution for the manifest learner when more than one node publishes to `/tf`.
+Nav2 / `ros2_control` controller integration · hardware robots · an even larger fault library (lifecycle nodes, sensor drift/content-level anomalies) · fleet monitoring · more guarded repair primitives (more allowlisted parameters) · automatic TF-broadcaster attribution for the manifest learner when more than one node publishes to `/tf`.
 
 # License
 

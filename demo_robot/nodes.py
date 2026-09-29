@@ -76,6 +76,8 @@ class VelocityCommander(DemoNode):
         self.create_timer(0.1, self.tick)
 
     def tick(self):
+        if self.hung:
+            return
         t = time.monotonic() - self.t0
         msg = Twist()
         msg.linear.x = 0.25
@@ -84,6 +86,10 @@ class VelocityCommander(DemoNode):
 
     def diagnostic(self):
         return OK, "Publishing patrol velocity commands on /cmd_vel", {"rate_hz": 10}
+
+    def on_fault(self):
+        self.hung = True  # deadlocked: stays in the graph, publishes nothing on /cmd_vel or /diagnostics
+        self.get_logger().error("Planner watchdog timeout - velocity_commander hung, no /cmd_vel commands")
 
 
 class BaseController(DemoNode):
@@ -167,6 +173,8 @@ class WheelOdometry(DemoNode):
             self.last_wheels = time.monotonic()
 
     def tick(self):
+        if self.hung:
+            return
         now = time.monotonic()
         dt, self.last_t = now - self.last_t, now
         if now - self.last_wheels > 0.5:
@@ -196,6 +204,10 @@ class WheelOdometry(DemoNode):
             return WARN, "No /wheel_states received - odometry is not updating (robot stationary)", \
                 {"wheel_states_age_s": round(age, 1) if self.last_wheels else "never"}
         return OK, "Integrating wheel odometry", {"x": round(self.x, 2), "y": round(self.y, 2)}
+
+    def on_fault(self):
+        self.hung = True  # deadlocked: stays in the graph, stops publishing /odom AND the odom->base_link transform
+        self.get_logger().error("Odometry integration thread deadlocked - wheel_odometry hung")
 
 
 class LidarDriver(DemoNode):

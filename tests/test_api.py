@@ -28,7 +28,8 @@ def test_tools_endpoint_lists_read_only_and_gated_actions(api):
 
 def test_faults_endpoint(api):
     assert set(api.get("/api/faults").json()["faults"]) == {"controller_crash", "lidar_failure", "tf_failure",
-                                                            "topic_misconfig", "node_crash", "random"}
+                                                            "topic_misconfig", "node_crash", "commander_stall",
+                                                            "odometry_stall", "random"}
 
 
 def test_inject_validates_fault_name(api):

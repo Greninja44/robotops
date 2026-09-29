@@ -41,6 +41,12 @@ change), but only `check_action` decides whether the (action, target) pair is le
 `restart_component` for `topic_misconfig` even though `set_parameter` is offered as the less disruptive option - the mechanism
 was verified directly against the live node and through the full agent pipeline, not by trusting the model to reach for it.
 
+**New faults reuse the existing tools; they never need a new one.** `commander_stall` and `odometry_stall` are just a `hung` flag on
+`VelocityCommander`/`WheelOdometry` (the same pattern `TfBroadcaster` already used) wired to a new supervisor fault id - the topic-rate,
+diagnostics, TF and process-status tools the agent already had were enough to diagnose both correctly in real runs. Picking faults that fit
+inside the existing tool surface, rather than reaching for a new one, is deliberate: it is evidence that the tool layer generalizes, not just
+that this one demo robot happens to be easy.
+
 **Verification is broader than the repaired component.** After a restart the verifier re-measures the whole robot (24 checks)
 so a wrong fix — or a fix that breaks something else — does not count as recovery. A failed verification triggers one more
 investigation round, then a safe stop.
