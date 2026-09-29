@@ -1,116 +1,75 @@
+<div align="center">
+
 # RobotOps
 
-**AI reliability engineer for ROS 2 robots.**
+### Evidence-grounded AI reliability engineer for ROS 2 robots
 
-RobotOps investigates failures in a live ROS 2 system, gathers evidence, identifies a likely root cause, proposes a guarded repair, and independently verifies recovery.
+RobotOps investigates failures in a live ROS 2 system, gathers real evidence, proposes guarded repairs, and independently verifies recovery.
+
+![ROS 2](https://img.shields.io/badge/ROS%202-Lyrical-1f6feb?style=flat-square)
+![Python](https://img.shields.io/badge/Python-3.14-1f6feb?style=flat-square)
+![React](https://img.shields.io/badge/React-19-1f6feb?style=flat-square)
+![FastAPI](https://img.shields.io/badge/FastAPI-backend-1f6feb?style=flat-square)
+![Ollama](https://img.shields.io/badge/Ollama-qwen3%3A4b-1f6feb?style=flat-square)
+![tests](https://img.shields.io/badge/tests-143%20passing-2ea043?style=flat-square)
+[![CI](https://img.shields.io/github/actions/workflow/status/Greninja44/robotops/ci.yml?branch=main&style=flat-square&label=CI)](https://github.com/Greninja44/robotops/actions/workflows/ci.yml)
 
 ![RobotOps diagnosing and repairing a controller failure on a live ROS 2 system](docs/media/hero-demo.gif)
 
-<sub>A real run of the dashboard, not a mock-up: the controller node crashes, RobotOps investigates, a human approves the restart, and 24 independent checks confirm recovery.
-The clip is one uncut run (31 s; 6 fps GIF, [full-quality MP4](docs/media/hero-demo.mp4)), recorded by the UI test harness driving the real dashboard with short reading pauses. See [Reproduce the demo](#reproduce-the-demo).</sub>
+*RobotOps diagnosing a controller failure from live ROS 2 evidence, requesting approval for an allowlisted repair, then independently verifying recovery.*
 
-```text
-Robot stops  →  RobotOps investigates ROS  →  Controller failure identified  →  Evidence validated
-             →  Repair approved  →  Controller restarted  →  24/24 recovery checks pass
+<sub>One uncut run (31 s), not a mock-up — [full-quality MP4](docs/media/hero-demo.mp4) · [how it was recorded](docs/RECORDING.md)</sub>
+
+<sub>Team **Bluey** — Adarsh D — built for **CypherAI**</sub>
+
+[Overview](#overview) · [Architecture](#architecture) · [Evidence-grounded agent design](#evidence-grounded-agent-design) · [Safety](#safety-model) · [Results](#results) · [Quick start](#quick-start) · [Limitations](#limitations)
+
+</div>
+
+> [!NOTE]
+> **The LLM does not define ground truth.** RobotOps lets the model choose what to investigate, but a diagnosis may only cite evidence IDs produced
+> by real ROS tool calls, and code — not the model — checks every citation before a diagnosis is accepted. State-changing actions require explicit
+> human approval, only one allowlisted repair exists, and recovery is verified independently of the model.
+
+---
+
+# Overview
+
+A ROS 2 robot is a distributed system: nodes, topics, transforms, sensors and controllers, all talking over DDS.
+
+### Problem statement
+
+**Diagnosing a failed ROS 2 robot is slow, manual and expert-only, and a repair is only trusted once someone checks that the robot really recovered.**
+When something fails, an engineer normally inspects the graph by hand — `ros2 node list`, `ros2 topic info`, `ros2 topic hz`, TF, `/diagnostics`,
+logs — one command informing the next, until the symptom (*"the robot doesn't move"*) is traced back to a cause that is often several hops away (a
+crashed controller node). Each step depends on what the last one showed, and the investigation is repeated for every incident.
+
+### Solution
+
+**RobotOps runs that investigation for you, on the live system, and keeps a human in control of the fix.** A local LLM decides which read-only ROS
+check to run next; code turns every result into numbered evidence and rejects any diagnosis that is not backed by it; a person approves the one
+allowlisted repair; and RobotOps re-measures the whole robot before it reports recovery. In the demo, a crashed controller is found, explained with
+cited evidence, restarted and verified in about 16 s from the question to recovery (median of 10 runs).
+
+```mermaid
+flowchart LR
+    A[Observe] --> B[Investigate] --> C[Gather evidence] --> D[Diagnose] --> E[Approve] --> F[Repair] --> G[Verify]
 ```
 
-[Problem statement](#problem-statement) · [Solution](#solution) · [What it does](#what-robotops-does) · [Why AI?](#why-ai) · [Architecture](#architecture) · [Safety](#safety-model) · [Results](#results) · [Quick start](#quick-start) · [Limitations](#limitations)
+<details>
+<summary>What each step does</summary>
 
-| | |
-|---|---|
-| **Team** | Bluey |
-| **Member** | Adarsh D |
-| **Hackathon** | CypherAI |
+1. **Observe** — a read-only health snapshot of the live ROS graph (nodes, topics, rates, TF, diagnostics).
+2. **Investigate** — a local LLM chooses the next read-only ROS tool to run, one at a time, based on what it has seen so far.
+3. **Gather evidence** — every tool result becomes numbered, timestamped evidence (`E1`, `E2`, ...) whose findings are generated by code from the measurement.
+4. **Diagnose** — the LLM names a root cause and *cites evidence IDs*. Code validates the citations before anything else happens.
+5. **Approve** — the proposal (action, target, reason, expected result, risk) is shown to a human; nothing executes without an explicit, single-use approval bound to that exact action and target.
+6. **Repair** — an allowlisted `restart_component`; the LLM has no execution tool of its own.
+7. **Verify** — 24 independent live checks re-measure the *whole* robot. A zero exit code counts for nothing.
 
+</details>
 
-## Problem statement
-
-**Diagnosing a failed ROS 2 robot is slow, manual and expert-only, and the repair is only trusted once someone has checked that the robot really recovered.**
-
-When a ROS 2 robot stops working, an engineer starts a manual investigation across a distributed system:
-
-`ros2 node list` (is every node up?) → `ros2 topic list` / `ros2 topic info /cmd_vel` (does anything subscribe?) → `ros2 topic hz /wheel_states` (is data flowing?) → TF (is the `base_link → laser` transform fresh?) → `/diagnostics` and node logs (what did each component report?) → the controller's state (did it crash, and why?).
-
-Each step depends on what the last one showed, the symptoms are far from the cause (a dead controller shows up as "the robot doesn't move" and "odometry is frozen"), and it is repeated for every incident.
-
-## Solution
-
-**RobotOps is an AI reliability engineer that runs that investigation for you, on the live system, and keeps a human in control of the fix.**
-A local LLM decides which read-only ROS check to run next; code turns every result into numbered evidence and rejects any diagnosis that is not backed by it;
-a person approves the one allowlisted repair (`restart_component`); and RobotOps then re-measures the whole robot (24 checks) before it reports recovery.
-In the demo, a crashed controller is found, explained with cited evidence, restarted and verified in about 16 s from the question to recovery (median of 10 runs).
-
-### At a glance
-
-| | |
-|---|---|
-| **Input** | a live ROS 2 graph (nodes, topics, rates, TF, diagnostics, logs) and a question such as *"Robot stopped moving. Diagnose it."* |
-| **AI's job** | choose the next read-only check, form a hypothesis, write a diagnosis that cites evidence IDs (local `qwen3:4b`, no cloud, no API key) |
-| **Code's job** | run the checks, number the evidence, validate every citation, gate the repair behind human approval, execute only allowlisted repairs, verify recovery |
-| **Output** | root cause with cited evidence, a guarded repair proposal, and a verified recovery report (24 independent checks) |
-| **Proof** | real recording above · hero 10/10 · random hidden fault 15/15 on the five-fault set · 143 fast + 19 live-ROS tests · raw data in [`benchmarks/`](benchmarks) |
-| **Run it** | `./scripts/setup.sh` → `./run_demo.sh` → <http://127.0.0.1:8000> ([Quick start](#quick-start)) |
-
-## What RobotOps does
-
-```text
-Observe → Investigate → Gather evidence → Diagnose → Propose repair → Human approval → Repair → Verify
-```
-
-1. **Observe**: a read-only health snapshot of the live ROS graph (nodes, topics, rates, TF, diagnostics).
-2. **Investigate**: a local LLM chooses the next read-only ROS tool to run, one at a time, based on what it has seen so far.
-3. **Gather evidence**: every tool result becomes numbered, timestamped evidence (`E1`, `E2`, ...) whose findings are generated by code from the measurement.
-4. **Diagnose**: the LLM names a root cause and *cites evidence IDs*. Code validates the citations before anything else happens.
-5. **Propose repair**: the proposal (action, target, reason, expected result, risk) is shown to a human.
-6. **Human approval**: nothing that changes the robot runs without an explicit, single-use approval bound to that exact action and target.
-7. **Repair**: an allowlisted `restart_component`.
-8. **Verify**: 24 independent live checks re-measure the *whole* robot. A zero exit code counts for nothing.
-
-## Demo
-
-Real trace of the controller-failure scenario (query: *"Robot stopped moving. Diagnose it."*). The complete machine-readable record of this run,
-including the full event stream and all 24 verification checks, is [`docs/examples/controller_failure_trace.json`](docs/examples/controller_failure_trace.json).
-
-| Time | Event | What RobotOps saw or did |
-|---|---|---|
-| +0.0 s | observe | `get_ros_health` → *E2 [ANOMALY] 1 expected node(s) missing: /base_controller* |
-| +1.2 s | LLM picks `list_nodes` | *E4 [ANOMALY] Expected node /base_controller (base motor controller, consumes velocity commands) is NOT present in the ROS graph* |
-| +2.2 s | LLM picks `list_topics` | *E5 [ANOMALY] Expected topic /wheel_states has no publishers* |
-| +4.1 s | LLM submits diagnosis, citing `E2`, `E5` | validator: IDs exist, 2 distinct tool calls, anomalies concern the target, action allowlisted → **accepted** |
-| +4.1 s | proposal | `restart_component base_controller`, risk *medium*, **awaiting approval** |
-| operator clicks Approve | approval | single-use approval bound to `restart_component / base_controller` |
-| approval + 0.04 s | repair | the supervisor restarts the process |
-| approval + 5.1 s | verification | **24 / 24 checks passed**: `/base_controller` in the graph, subscribed to `/cmd_vel`, `/wheel_states` at 20 Hz, odometry changing, controller diagnostics OK, ... |
-
-<table>
-<tr>
-<td width="33%"><a href="docs/screenshots/states/03_investigating.png"><img src="docs/screenshots/states/03_investigating.png" alt="Investigation in progress"></a><sub><b>Investigating.</b> The model chooses one read-only tool at a time; the graph highlights what is being inspected and each result is shown with its real values.</sub></td>
-<td width="33%"><a href="docs/screenshots/hero/03_approval.png"><img src="docs/screenshots/hero/03_approval.png" alt="Root cause and proposed repair awaiting approval"></a><sub><b>Awaiting approval.</b> The root cause cites evidence <code>E2</code> and <code>E5</code>; the proposed <code>restart_component base_controller</code> executes only after a human clicks Approve.</sub></td>
-<td width="33%"><a href="docs/screenshots/hero/04_resolved.png"><img src="docs/screenshots/hero/04_resolved.png" alt="Recovery verified: 24/24 checks passed"></a><sub><b>Recovery verified.</b> The whole robot was re-measured after the restart: 24 of 24 checks passed, and the summary shows the measured diagnosis and recovery times.</sub></td>
-</tr>
-</table>
-
-## Why AI?
-
-Diagnosing a distributed robot is a *sequential decision problem*: which check is worth running next depends on what the previous one revealed, and the symptom
-("the robot doesn't move") is not the cause. RobotOps splits the work along that line.
-
-| The LLM does (judgement) | Deterministic code does (facts and guarantees) |
-|---|---|
-| chooses which diagnostic tool to run next | executes the ROS observations (rclpy) |
-| decides what to inspect next given the evidence so far | turns measurements into findings and numbers the evidence (`E1`, `E2`, ...) |
-| forms a hypothesis about the root cause | validates that every evidence reference exists, comes from real tool output, and supports the claim |
-| synthesizes the diagnosis and recommends an action | enforces permissions and the human-approval gate |
-| | executes only allowlisted repairs |
-| | verifies recovery independently |
-
-**It is not `if fault == X: restart X`.** There is no fault-to-tool or fault-to-repair table, and the fault's identity never reaches the agent: the supervisor
-keeps it for scoring only, the API withholds it for random faults, and a test plus a prompt audit (`ROBOTOPS_AUDIT_PROMPTS=1`) check that no fault identifier appears in any recorded model input.
-The tool sequence really depends on the evidence: for the same query the model chose `list_nodes → list_topics` for a controller crash, `get_recent_diagnostics → check_tf` for a TF failure,
-and `get_recent_diagnostics → check_tf → measure_topic_rate` for a LiDAR failure ([benchmark table](benchmarks/results_20260920_052452.md)).
-Honest caveat: with a fixed sampling seed the same fault gives the same sequence, and the small model has habits (see [Limitations](#limitations)).
-
-## Architecture
+# Architecture
 
 ```mermaid
 flowchart TD
@@ -138,17 +97,70 @@ flowchart TD
     Gate -.-> Audit[("audit log")]
 ```
 
-**Trust boundaries.** The LLM can only (1) choose one of the *read-only* tools and (2) submit a diagnosis that cites evidence IDs. It has no execution tool, no shell and no
-way to write to the audit log. A diagnosis reaches a human only through the **evidence validator**; a repair runs only through the **approval gate**
-and the **allowlist**; a run only counts as recovered through **independent verification**. Each of those is ordinary code, unit-tested, and sits
-outside the model. Implementation: [`backend/agent/`](backend/agent) (state machine, validator, verifier), [`backend/ros_tools/`](backend/ros_tools) (tools, repair), [`backend/safety/`](backend/safety) (policy, approvals, audit).
-Design notes: [docs/DESIGN.md](docs/DESIGN.md).
+The LLM can only choose a *read-only* tool or submit a diagnosis that cites evidence IDs — it has no execution tool, no shell, and no way to write
+to the audit log. A diagnosis reaches a human only through the **evidence validator**; a repair runs only through the **approval gate** and the
+**allowlist**; a run only counts as recovered through **independent verification**. Each of those is ordinary, unit-tested code that sits outside
+the model. Implementation: [`backend/agent/`](backend/agent) (state machine, validator, verifier), [`backend/ros_tools/`](backend/ros_tools)
+(tools, repair), [`backend/safety/`](backend/safety) (policy, approvals, audit). Design notes: [docs/DESIGN.md](docs/DESIGN.md).
 
-## Evidence-grounded diagnosis
+# Evidence-grounded agent design
 
-Every observation becomes an entry in an **evidence ledger** with an ID, produced by code. The LLM never writes evidence; it can only *refer* to it.
-A diagnosis is admissible only if code can check it against the ledger. This is the real accepted diagnosis from the run above
-(trimmed; full record in [`docs/examples/controller_failure_trace.json`](docs/examples/controller_failure_trace.json)):
+Diagnosing a distributed robot is a *sequential decision problem*: which check is worth running next depends on what the previous one revealed.
+RobotOps gives that judgement to the model and keeps everything that must be true as deterministic code.
+
+| Model decides | RobotOps enforces |
+|---|---|
+| What to investigate next | Tool input validation |
+| Which diagnostic tool to call | Real ROS observations (rclpy, no simulated data) |
+| Which hypothesis to test | Evidence-ID validation (citations must exist and support the claim) |
+| The likely root cause | The human-approval gate |
+| The repair to propose | The repair allowlist |
+| | Independent verification of recovery |
+
+**It is not `if fault == X: restart X`.** There is no fault-to-tool or fault-to-repair table, and the fault's identity never reaches the agent: the
+supervisor keeps it for scoring only, the API withholds it for random faults, and a test plus a prompt audit (`ROBOTOPS_AUDIT_PROMPTS=1`) check that
+no fault identifier appears in any recorded model input. The tool sequence really depends on the evidence: for the same query the model chose
+`list_nodes → list_topics` for a controller crash, `get_recent_diagnostics → check_tf` for a TF failure, and
+`get_recent_diagnostics → check_tf → measure_topic_rate` for a LiDAR failure ([benchmark table](benchmarks/results_20260920_052452.md)). Honest
+caveat: with a fixed sampling seed the same fault gives the same sequence, and the small model has habits (see [Limitations](#limitations)).
+
+# Real investigation example
+
+Real trace of the controller-failure scenario behind the recording above (query: *"Robot stopped moving. Diagnose it."*, investigation `3c9c268e70`).
+Nothing here is invented — the full machine-readable record, including all 24 verification checks, is
+[`docs/examples/controller_failure_trace.json`](docs/examples/controller_failure_trace.json).
+
+```text
+09:29:43  get_ros_health
+          1 expected node(s) missing: /base_controller                          [E2, anomaly]
+
+09:29:45  list_nodes
+          /base_controller missing from the ROS graph                           [E4, anomaly]
+
+09:29:46  list_topics
+          /wheel_states: expected topic has no publishers                       [E5, anomaly]
+
+09:29:48  diagnosis                          cites E2, E5 · confidence 0.70
+          base_controller — missing node causing no /wheel_states production
+
+09:29:48  proposal
+          restart_component base_controller · risk medium · awaiting approval
+
+09:29:53  approved → repair executed (restart_component base_controller)
+
+09:29:58  verification
+          24 / 24 checks passed · recovery verified
+```
+
+<table>
+<tr>
+<td width="33%"><a href="docs/screenshots/states/03_investigating.png"><img src="docs/screenshots/states/03_investigating.png" alt="Investigation in progress"></a><br><sub><b>Investigating.</b> One read-only tool at a time; the graph highlights what is being inspected.</sub></td>
+<td width="33%"><a href="docs/screenshots/hero/03_approval.png"><img src="docs/screenshots/hero/03_approval.png" alt="Root cause and proposed repair awaiting approval"></a><br><sub><b>Awaiting approval.</b> Root cause cites <code>E2</code>/<code>E5</code>; nothing executes before a human clicks Approve.</sub></td>
+<td width="33%"><a href="docs/screenshots/hero/04_resolved.png"><img src="docs/screenshots/hero/04_resolved.png" alt="Recovery verified: 24/24 checks passed"></a><br><sub><b>Recovery verified.</b> 24 of 24 independent checks passed after the restart.</sub></td>
+</tr>
+</table>
+
+This is the accepted diagnosis object itself (trimmed):
 
 ```json
 {
@@ -165,12 +177,12 @@ A diagnosis is admissible only if code can check it against the ledger. This is 
 }
 ```
 
-The validator rejects a diagnosis (and tells the model why) when: a cited ID does not exist; the cited findings come from fewer than two different tool calls;
-none of them is an anomaly about the named component; or the action is not allowlisted. Repeated rejection ends the investigation as **inconclusive** and no repair is proposed.
-`confidence` is a labelled *evidence score* computed in code from the number and diversity of cited anomalies, not the model's own confidence.
-The UI and logs show tool calls, values, evidence and one-line summaries only; the model's private reasoning is never stored or displayed.
+The validator rejects a diagnosis (and tells the model why) when: a cited ID does not exist; the cited findings come from fewer than two different
+tool calls; none of them is an anomaly about the named component; or the action is not allowlisted. Repeated rejection ends the investigation as
+**inconclusive** and no repair is proposed. `confidence` is a labelled *evidence score* computed in code from the number and diversity of cited
+anomalies, not the model's own confidence. The model's private reasoning is never stored or displayed.
 
-## Safety model
+# Safety model
 
 - **Read-only tools run automatically.** The LLM's tool list contains 11 read-only ROS tools and nothing that changes state (tested).
 - **State-changing actions require approval.** A repair needs a proposal that passed the evidence gate and a human approval that is single-use, expires, and is bound to `(action, target)`; replay and action-swapping are refused (tested).
@@ -180,7 +192,7 @@ The UI and logs show tool calls, values, evidence and one-line summaries only; t
 - **Audited and bounded.** `logs/audit.jsonl` records decisions, tool calls, approvals, repairs and verification. Step, turn, rejection and round caps and a 60 s model timeout (one retry, then a safe stop) bound every investigation.
 - **Graceful degradation.** ROS down, Ollama down, model timeout, malformed model output, unknown node or topic, unreachable supervisor: each yields a structured error and a safe stop, not a crash.
 
-## Fault scenarios
+# Fault scenarios
 
 | Fault | Observable symptom | Repair |
 |---|---|---|
@@ -193,7 +205,7 @@ The UI and logs show tool calls, values, evidence and one-line summaries only; t
 
 The repair column describes what the *correct* outcome is; the agent is never told it. Faults are injected into a real, running rclpy demo robot (6 nodes, real DDS traffic), not simulated in the UI.
 
-## Results
+# Results
 
 Everything below was measured on the demo robot in this repository, on one laptop (RTX 4050 6 GB, WSL2), with `qwen3:4b`. Raw data is in [`benchmarks/`](benchmarks); methodology and caveats follow the tables.
 
@@ -233,17 +245,17 @@ A run counts as *correct* only if the named component matches the injected fault
 - Earlier versions did worse and the files are kept: the first agent needed a median of 129.9 s per diagnosis on a shared machine, and `llama3.2:3b` completed no investigation ([`benchmarks/results.md`](benchmarks/results.md), [`benchmarks/results_llama.md`](benchmarks/results_llama.md)).
 - The fault set is the five injected failure modes of this demo robot. Nothing here measures performance on real hardware or on failures outside that set.
 
-## Performance
+# Performance
 
 The first working version took a **~92 s** warm median per diagnosis. Profiling ([docs/PERFORMANCE.md](docs/PERFORMANCE.md), profiles in [`benchmarks/profiles/`](benchmarks/profiles)) showed the cause was not ROS or the GPU: the model generated about 3,000 tokens of unnecessary prose per diagnosis.
 Fixes: grammar-constrained JSON decisions (no room for prose), a compact context (a manifest summary instead of raw dumps), a GPU-resident model with a blocking warm-up gate before the demo is declared ready, and a bounded per-request timeout with a retry.
 Result: the hero diagnosis takes **10.6 s median** through the real dashboard (3–6 model calls of ~1–2 s each).
 
-## UI
+# UI
 
 The dashboard is an engineering console: **System** health and topic rates on the left, the live **ROS graph** in the centre (failed, inspected and involved nodes are marked), and the **Investigation** event stream on the right, followed by the root cause with its evidence, the proposed action with **Approve / Reject**, and the verification result. The status bar always states what is happening (Ready, Fault detected, Investigating, Awaiting approval, Verifying recovery, Recovery verified) and shows ROS / Agent / Ollama / Model / DDS readiness.
 
-## Quick start
+# Quick start
 
 Requirements (details and troubleshooting in [docs/SETUP.md](docs/SETUP.md)): Linux or WSL2 with **ROS 2 Lyrical** (rclpy, Cyclone DDS), Python 3.14 as used by that ROS install, Node.js 20+, and [Ollama](https://ollama.com) with the `qwen3:4b` model (`ollama pull qwen3:4b`). No API keys, no cloud service, no Docker.
 
@@ -271,7 +283,7 @@ Then open **http://127.0.0.1:8000**. Stop everything with `./scripts/stop_all.sh
 Try **Inject random fault** with the query `Diagnose the robot.` to see the agent find a fault it was never told about.
 The same sequence, scripted: `.venv/bin/python scripts/ui_hero_demo.py --runs 1`; to record it, `--video docs/media/hero-demo.webm` ([docs/RECORDING.md](docs/RECORDING.md)).
 
-## Testing
+# Testing
 
 The fast suite and the dashboard build also run in CI on every push and pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)); the live-ROS tests and benchmarks need ROS 2 and Ollama, so they run locally.
 
@@ -285,7 +297,7 @@ The fast suite and the dashboard build also run in CI on every push and pull req
 (cd frontend && npx tsc -b && npm run lint && npm run build)
 ```
 
-## Technical stack
+# Technical stack
 
 ROS 2 **Lyrical** (`rclpy`, `tf2_ros`, Cyclone DDS) · Python 3.14 · FastAPI + WebSocket + `httpx` + `pydantic` · Ollama with **`qwen3:4b`** (grammar-constrained JSON decisions, local inference) ·
 React 19 + TypeScript + Vite + React Flow (`@xyflow/react`) · `pytest` (+ Playwright for the UI harnesses). No LangGraph: the agent is a small explicit state machine ([`backend/agent/graph.py`](backend/agent/graph.py)).
@@ -308,7 +320,7 @@ docs/           SETUP, DESIGN, PERFORMANCE, RECORDING, SUBMISSION_AUDIT, GITHUB_
 run_demo.sh, demo_preflight.sh
 ```
 
-## Limitations
+# Limitations
 
 - **Demo topology.** The robot is a lightweight rclpy simulation of failure modes (6 nodes, real DDS), not hardware, Gazebo or Nav2. The tool layer is generic (graph, topic, TF, parameter, diagnostics, log inspection), but the healthy-reference manifest (`demo_robot/manifest.json`) and the graph layout of the dashboard are written for this robot.
 - **One repair primitive.** `restart_component` is the only state-changing action, on six named components. It fits these five faults; it would not fix a bad parameter or a hardware fault.
@@ -317,14 +329,14 @@ run_demo.sh, demo_preflight.sh
 - **Platform.** Developed on WSL2, where DDS needs the fragmentation settings in [`config/cyclonedds.xml`](config/cyclonedds.xml); discovery can hiccup when the machine is heavily loaded. Only ROS 2 Lyrical on Linux/WSL2 was tested. The GPU is shared with other work on the same machine.
 - **Small samples.** See [Results](#results).
 
-## Future work
+# Future work
 
 Nav2 / `ros2_control` controller integration · hardware robots · a larger fault library (parameters, lifecycle nodes, sensor drift) · fleet monitoring · incident memory (learning from past incidents) · more guarded repair primitives (allowlisted parameter changes) · learning the healthy manifest from a baseline recording.
 
-## License
+# License
 
-_No licence has been added yet: add one before publishing (see [docs/GITHUB_SUBMISSION.md](docs/GITHUB_SUBMISSION.md))._
+_No licence has been added yet: add one before relying on this code elsewhere (see [docs/GITHUB_SUBMISSION.md](docs/GITHUB_SUBMISSION.md))._
 
-## More documentation
+---
 
-[docs/SETUP.md](docs/SETUP.md) (setup, configuration, troubleshooting) · [docs/DESIGN.md](docs/DESIGN.md) · [docs/PERFORMANCE.md](docs/PERFORMANCE.md) · [docs/RECORDING.md](docs/RECORDING.md) · [docs/STATUS.md](docs/STATUS.md) · [docs/SUBMISSION_AUDIT.md](docs/SUBMISSION_AUDIT.md) · [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)
+<sub>[docs/SETUP.md](docs/SETUP.md) · [docs/DESIGN.md](docs/DESIGN.md) · [docs/PERFORMANCE.md](docs/PERFORMANCE.md) · [docs/RECORDING.md](docs/RECORDING.md) · [docs/STATUS.md](docs/STATUS.md) · [docs/SUBMISSION_AUDIT.md](docs/SUBMISSION_AUDIT.md) · [docs/RELEASE_NOTES.md](docs/RELEASE_NOTES.md)</sub>
