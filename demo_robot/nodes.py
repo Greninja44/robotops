@@ -34,6 +34,7 @@ class DemoNode(Node):
     def __init__(self, name):
         super().__init__(name)
         self.fault_requested = False
+        self.drift_requested = False
         self.hung = False
         self._diag_pub = self.create_publisher(DiagnosticArray, "/diagnostics", 10)
         self.create_timer(1.0, self._publish_diagnostics)
@@ -43,6 +44,11 @@ class DemoNode(Node):
         return OK, "Running", {}
 
     def on_fault(self):
+        pass
+
+    def on_drift(self):
+        """A second, weaker signal than on_fault(): the process stays alive and keeps publishing at its
+        normal rate, but the data itself goes bad (frozen/implausible) - content-level, not presence/rate."""
         pass
 
     def _publish_diagnostics(self):
@@ -219,6 +225,7 @@ class LidarDriver(DemoNode):
         super().__init__("lidar_driver")
         self.pub = self.create_publisher(LaserScan, "/scan", 10)
         self.stalled_since = None
+        self.drifting = False
         self.scans = 0
         self.rng = random.Random(7)
         self.create_timer(0.1, self.tick)
@@ -232,12 +239,17 @@ class LidarDriver(DemoNode):
         msg.angle_increment = 2 * math.pi / self.N
         msg.scan_time, msg.time_increment = 0.1, 0.1 / self.N
         msg.range_min, msg.range_max = 0.12, 12.0
-        ranges = []
-        for i in range(self.N):
-            a = msg.angle_min + i * msg.angle_increment
-            c, s = math.cos(a), math.sin(a)
-            d = min(3.0 / abs(c) if abs(c) > 1e-6 else 1e9, 2.0 / abs(s) if abs(s) > 1e-6 else 1e9)
-            ranges.append(float(d + self.rng.gauss(0, 0.01)))
+        if self.drifting:
+            # a stuck/saturated sensor: keeps publishing at the normal rate, but every beam reads the same
+            # implausible value - not silence, not a crash, a content-level fault.
+            ranges = [msg.range_min] * self.N
+        else:
+            ranges = []
+            for i in range(self.N):
+                a = msg.angle_min + i * msg.angle_increment
+                c, s = math.cos(a), math.sin(a)
+                d = min(3.0 / abs(c) if abs(c) > 1e-6 else 1e9, 2.0 / abs(s) if abs(s) > 1e-6 else 1e9)
+                ranges.append(float(d + self.rng.gauss(0, 0.01)))
         msg.ranges = ranges
         self.pub.publish(msg)
         self.scans += 1
@@ -247,11 +259,18 @@ class LidarDriver(DemoNode):
             age = time.monotonic() - self.stalled_since
             return ERROR, f"No data from device for {age:.1f}s (serial read timeout on /dev/ttyUSB0)", \
                 {"scans_published": self.scans, "device": "/dev/ttyUSB0"}
+        if self.drifting:
+            return WARN, "Scan data may be frozen (every beam reading the same range) - possible stuck sensor", \
+                {"scans_published": self.scans, "device": "/dev/ttyUSB0"}
         return OK, "Scanning at 10 Hz", {"scans_published": self.scans, "device": "/dev/ttyUSB0"}
 
     def on_fault(self):
         self.stalled_since = time.monotonic()
         self.get_logger().error("Serial read timeout on /dev/ttyUSB0 - lidar driver stalled, no scans")
+
+    def on_drift(self):
+        self.drifting = True
+        self.get_logger().error("LiDAR readings saturated at range_min across all beams - sensor stuck, still publishing")
 
 
 class TfBroadcaster(DemoNode):
@@ -339,12 +358,16 @@ def main():
     rclpy.init(args=sys.argv)
     node = COMPONENTS[sys.argv[1]]()
     signal.signal(signal.SIGUSR1, lambda *_: setattr(node, "fault_requested", True))
+    signal.signal(signal.SIGUSR2, lambda *_: setattr(node, "drift_requested", True))
     try:
         while rclpy.ok():
             rclpy.spin_once(node, timeout_sec=0.1)
             if node.fault_requested:
                 node.fault_requested = False
                 node.on_fault()
+            if node.drift_requested:
+                node.drift_requested = False
+                node.on_drift()
     except KeyboardInterrupt:
         pass
     finally:

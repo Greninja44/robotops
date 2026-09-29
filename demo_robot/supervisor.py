@@ -42,6 +42,7 @@ FAULTS = {
     "node_crash": "obstacle monitor process crashes",
     "commander_stall": "velocity commander hangs (process alive, no /cmd_vel; the node the robot never checks first)",
     "odometry_stall": "wheel odometry hangs (process alive, no /odom, odom->base_link transform goes stale)",
+    "sensor_drift": "lidar saturates at range_min on every beam (process alive, normal rate, content is wrong)",
 }
 
 
@@ -115,11 +116,11 @@ class Supervisor:
                           "launch_args": m.get("args", [])}
             return out
 
-    def _signal(self, name):
+    def _signal(self, name, sig=signal.SIGUSR1):
         p = self.procs.get(name)
         if p is None or p.poll() is not None:
             raise RuntimeError(f"{name} is not running")
-        p.send_signal(signal.SIGUSR1)
+        p.send_signal(sig)
 
     def inject(self, fault):
         if fault == "random":
@@ -139,6 +140,8 @@ class Supervisor:
                 self._signal("velocity_commander")
             elif fault == "odometry_stall":
                 self._signal("wheel_odometry")
+            elif fault == "sensor_drift":
+                self._signal("lidar_driver", signal.SIGUSR2)
             elif fault == "topic_misconfig":
                 self._stop("base_controller")
                 self._spawn("base_controller", ["-p", "cmd_vel_topic:=/cmd_vel_nav"])
