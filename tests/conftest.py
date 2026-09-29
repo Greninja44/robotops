@@ -26,6 +26,16 @@ def tmp_audit(tmp_path):
     return AuditLog(tmp_path / "audit.jsonl")
 
 
+@pytest.fixture(autouse=True)
+def isolated_incident_memory(tmp_path, monkeypatch):
+    """Every test gets its own incident log: Agent.run() calls memory.record() unconditionally, so without
+    this every fast unit test that exercises the agent loop would append synthetic incidents to the real
+    logs/incidents.jsonl on disk (found the hard way: it grew to hundreds of lines from a single test run,
+    inflating the "compact system prompt" test's measured size). No test needs to request this explicitly."""
+    from backend.agent import memory
+    monkeypatch.setattr(memory, "PATH", tmp_path / "incidents.jsonl")
+
+
 def pytest_configure(config):
     config.addinivalue_line("markers", "ros: needs a running ROS 2 demo robot (scripts/start_demo.sh)")
     config.addinivalue_line("markers", "llm: needs a reachable Ollama with the configured model")
