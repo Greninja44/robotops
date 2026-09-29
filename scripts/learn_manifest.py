@@ -38,6 +38,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 
+from backend.ros_tools import supervisor  # noqa: E402
 from backend.ros_tools.client import get_client  # noqa: E402
 
 # ROS-infrastructure topics that are not part of the robot's own data flow (not modeled as manifest
@@ -93,6 +94,55 @@ def _tf_frames(client) -> dict:
         return yaml.safe_load(client.tf_buffer.all_frames_as_yaml()) or {}
     except Exception:  # noqa: BLE001
         return {}
+
+
+def resolve_tf_broadcasters_actively(client, tf_edges: list[dict]) -> None:
+    """Opt-in (--active), invasive: for every edge whose candidates list has more than one entry, restart
+    one candidate at a time and watch whether that edge's timestamp freezes during the respawn gap - the
+    node that stops publishing an edge while it restarts is the one that broadcasts it. Mutates tf_edges'
+    "candidates" lists down to a single entry wherever it can resolve one; leaves the rest untouched (still
+    ambiguous, still reported as a warning) rather than guess. Briefly disrupts the robot - a few hundred ms
+    of downtime per candidate tried - so this is meant for a demo/lab robot during setup, never a live one."""
+    remaining = {(e["parent"], e["child"]): e for e in tf_edges if len(e["candidates"]) > 1}
+    if not remaining:
+        return
+    print(f"[active] resolving {len(remaining)} ambiguous TF edge(s) ...")
+    MAX_PASSES = 3   # a restart's respawn gap varies with system load; a single sample can miss it, so retry
+    for attempt in range(1, MAX_PASSES + 1):
+        if not remaining:
+            break
+        candidates = sorted({c for e in remaining.values() for c in e["candidates"]})
+        for full_name in candidates:
+            if not remaining:
+                break
+            component = full_name.lstrip("/")
+            try:
+                supervisor.restart(component)   # blocks ~0.3-0.5s itself; the node is still alive throughout
+            except Exception as e:  # noqa: BLE001 - supervisor unreachable, unknown component, etc.
+                print(f"[active]   {component}: restart failed ({e}), skipping")
+                continue
+            # A "before" snapshot taken before the (blocking) restart call is stale by the time it returns,
+            # so instead: poll repeatedly right after and look for an edge whose timestamp is IDENTICAL
+            # across two consecutive samples - the signature of "nothing published this edge in between" -
+            # rather than comparing to any single earlier reference point.
+            samples = []
+            for _ in range(6):
+                samples.append(_tf_frames(client))
+                time.sleep(0.1)
+            froze = set()
+            for edge_key, e in remaining.items():
+                if full_name not in e["candidates"]:
+                    continue
+                ts = [(s.get(e["child"]) or {}).get("most_recent_transform") for s in samples]
+                if any(a is not None and a == b for a, b in zip(ts, ts[1:])):
+                    froze.add(edge_key)
+            time.sleep(1.5)    # let it fully recover before trying the next candidate
+            for edge_key in list(froze):
+                e = remaining.pop(edge_key)
+                print(f"[active]   {e['parent']}->{e['child']}: resolved to {full_name} (froze during its restart, attempt {attempt})")
+                e["candidates"] = [full_name]
+    for e in remaining.values():
+        print(f"[active]   {e['parent']}->{e['child']}: still ambiguous after {MAX_PASSES} attempt(s) at every candidate - left for a human")
 
 
 def build_manifest(learned: dict, existing: dict | None, margin: float) -> tuple[dict, list[str]]:
@@ -182,12 +232,16 @@ def main():
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--merge", default=str(ROOT / "demo_robot" / "manifest.json"),
                     help="existing manifest to keep prose/thresholds/broadcasters from (default: demo_robot/manifest.json; "
-                         "pass a nonexistent path, e.g. /dev/null, to learn from scratch)")
+                         "pass a nonexistent path to learn from scratch, e.g. --merge /tmp/none.json)")
     ap.add_argument("--out", default=str(ROOT / "demo_robot" / "manifest.json"), help="where to write the result")
     ap.add_argument("--duration", type=float, default=3.0, help="seconds to sample each topic's rate (default 3)")
     ap.add_argument("--margin", type=float, default=0.5,
                     help="min_rate_hz = margin * measured_hz for any topic with no prior threshold (default 0.5)")
     ap.add_argument("--apply", action="store_true", help="write --out (default: dry run, prints the diff only)")
+    ap.add_argument("--active", action="store_true",
+                    help="resolve ambiguous TF broadcasters by restarting candidate nodes one at a time and watching which "
+                         "edge freezes (a few hundred ms of downtime per candidate tried) - default is to only ever resolve "
+                         "an edge when there is exactly one candidate, or leave it for a human")
     args = ap.parse_args()
 
     existing = None
@@ -199,6 +253,8 @@ def main():
     time.sleep(2.5)
     print(f"Observing the live robot for {args.duration:.0f}s per topic ...")
     learned = learn(c, args.duration)
+    if args.active:
+        resolve_tf_broadcasters_actively(c, learned["tf_edges"])
     c.shutdown()
 
     manifest, warnings = build_manifest(learned, existing, args.margin)

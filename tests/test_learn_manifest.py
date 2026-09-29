@@ -100,3 +100,85 @@ def test_diff_summary_reports_added_removed_and_changed_thresholds():
 def test_diff_summary_is_empty_for_identical_manifests():
     m = {"nodes": {"/a": {}}, "topics": {}, "parameters": {}, "tf": []}
     assert lm.diff_summary(m, m) == []
+
+
+# ---------------------------------------------------------------------------- resolve_tf_broadcasters_actively
+# The real detection signal (found by direct observation against the live demo robot - see docs/STATUS.md):
+# supervisor.restart() itself blocks for ~0.3-0.5s while the node is still alive, so a "before" snapshot taken
+# before that call is stale by the time it returns and cannot be compared against. The robust signal is two
+# *consecutive* post-restart samples reporting the identical timestamp for one edge, while an unrelated edge
+# keeps advancing every ~50ms (20 Hz) - these tests exercise exactly that comparison, not real timing.
+
+class FakeSupervisor:
+    def __init__(self, fail_for=()):
+        self.calls = []
+        self.fail_for = set(fail_for)
+
+    def restart(self, component):
+        self.calls.append(component)
+        if component in self.fail_for:
+            raise ConnectionError("supervisor unreachable")
+        return {"ok": True}
+
+
+def frames_sequence(edges_over_time: dict[str, list[float | None]]):
+    """edges_over_time: {child_frame: [ts_call1, ts_call2, ...]}. Returns a callable good for len(next value list)
+    calls, each returning {child: {"most_recent_transform": ts}} for that call index."""
+    calls = {"n": 0}
+
+    def fake(client):
+        i = calls["n"]
+        calls["n"] += 1
+        return {child: {"most_recent_transform": (ts[i] if i < len(ts) else ts[-1])} for child, ts in edges_over_time.items()}
+    return fake
+
+
+def test_no_op_when_every_edge_already_has_one_candidate(monkeypatch):
+    sup = FakeSupervisor()
+    monkeypatch.setattr(lm, "supervisor", sup)
+    edges = [{"parent": "odom", "child": "base_link", "candidates": ["/wheel_odometry"]}]
+    lm.resolve_tf_broadcasters_actively(object(), edges)
+    assert sup.calls == [] and edges[0]["candidates"] == ["/wheel_odometry"]
+
+
+def test_resolves_to_the_candidate_whose_restart_actually_froze_it(monkeypatch):
+    sup = FakeSupervisor()
+    monkeypatch.setattr(lm, "supervisor", sup)
+    monkeypatch.setattr(lm.time, "sleep", lambda s: None)
+    # Candidates are tried in sorted order: /tf_broadcaster first (6 samples, indices 0-5, always advancing -
+    # its restart must NOT resolve the edge), then /wheel_odometry (indices 6-11, freezes at 200.0 twice -
+    # its restart IS what should resolve the edge). The mock can't see which candidate is "really" being
+    # restarted, so staging the freeze at the second candidate's sample window is what proves the attribution
+    # tracks *which restart* produced the freeze, not just "some restart, somewhere."
+    monkeypatch.setattr(lm, "_tf_frames", frames_sequence({
+        "laser": [1.0, 2.0, 3.0, 4.0, 5.0, 6.0, 200.0, 200.0, 200.0, 201.0, 202.0, 203.0],
+    }))
+    edges = [{"parent": "base_link", "child": "laser", "candidates": ["/tf_broadcaster", "/wheel_odometry"]}]
+    lm.resolve_tf_broadcasters_actively(object(), edges)
+    assert edges[0]["candidates"] == ["/wheel_odometry"]
+    assert sup.calls == ["tf_broadcaster", "wheel_odometry"]    # resolved after the second candidate - no more tried
+
+
+def test_a_restart_failure_is_skipped_not_raised(monkeypatch):
+    sup = FakeSupervisor(fail_for=("tf_broadcaster",))
+    monkeypatch.setattr(lm, "supervisor", sup)
+    monkeypatch.setattr(lm.time, "sleep", lambda s: None)
+    # always-advancing, so the surviving candidate's restart never falsely "resolves" it either - this test
+    # isolates just the "a failed restart must not crash the function" behaviour.
+    monkeypatch.setattr(lm, "_tf_frames", frames_sequence({"laser": [float(i) for i in range(50)]}))
+    edges = [{"parent": "base_link", "child": "laser", "candidates": ["/tf_broadcaster", "/wheel_odometry"]}]
+    lm.resolve_tf_broadcasters_actively(object(), edges)   # must not raise
+    assert sup.calls == ["tf_broadcaster", "wheel_odometry"] * 3         # still tried every pass, gave up cleanly
+    assert edges[0]["candidates"] == ["/tf_broadcaster", "/wheel_odometry"]   # left ambiguous, not guessed
+
+
+def test_gives_up_after_max_passes_when_nothing_ever_freezes(monkeypatch):
+    sup = FakeSupervisor()
+    monkeypatch.setattr(lm, "supervisor", sup)
+    monkeypatch.setattr(lm.time, "sleep", lambda s: None)
+    # always-advancing timestamps -> no two consecutive samples ever match -> never resolved
+    monkeypatch.setattr(lm, "_tf_frames", frames_sequence({"laser": [float(i) for i in range(50)]}))
+    edges = [{"parent": "base_link", "child": "laser", "candidates": ["/a", "/b"]}]
+    lm.resolve_tf_broadcasters_actively(object(), edges)
+    assert edges[0]["candidates"] == ["/a", "/b"]
+    assert sup.calls.count("a") == 3 and sup.calls.count("b") == 3       # tried every candidate, every pass

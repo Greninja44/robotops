@@ -22,6 +22,17 @@ automatically only when there is exactly one, and otherwise keeps a `--merge`-su
 leaves `null` with a warning. Run for real against this repo's demo robot, it found a genuine gap the hand-written manifest had missed:
 `base_controller` declares `max_wheel_speed` but the manifest never listed it, so `inspect_parameters` could never have flagged a change to it.
 
+**Closing the TF-broadcaster gap without guessing: an opt-in active probe.** `--active` resolves an ambiguous edge by restarting one candidate
+node at a time (via the same allowlisted `restart_component` path the agent's own repair uses) and watching for its signature: two *consecutive*
+post-restart samples reporting the identical timestamp for that edge, while an unrelated edge keeps advancing every ~50ms (20 Hz). Found by
+direct observation against the live robot, not assumed: a naive "before vs. after" comparison is wrong, because `supervisor.restart()` itself
+blocks for ~0.3-0.5s while the old process is still alive and publishing, so a snapshot taken *before* that call is already stale by the time it
+returns - the fix was to stop comparing against any pre-call baseline and instead look for two identical values back-to-back in the samples taken
+after it. Retries up to 3 full passes over every candidate (a respawn's exact timing varies with system load) before giving up and leaving an
+edge for a human. Verified for real against this repo's robot: both ambiguous edges (`odom->base_link`, `base_link->laser`) resolved correctly
+on the first attempt across three separate runs. Deliberately invasive (each candidate tried costs it a restart) and off by default - meant for
+a demo/lab robot during setup, never while diagnosing a live one.
+
 **Confidence.** The LLM's own confidence is never shown. The UI shows an *evidence score* computed in code from the number
 and diversity of cited anomalies, labelled heuristic, with the breakdown visible.
 
