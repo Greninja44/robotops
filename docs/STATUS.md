@@ -14,6 +14,13 @@
   entry points) rather than anything in `backend/`. The fast suite (150 tests) and a direct exercise of every tool, including the new
   `set_parameter` repair, against the live robot were used instead to validate this change; the 19 live-ROS tests were not re-verified clean end
   to end this session.
+- **Manifest learning**: `scripts/learn_manifest.py` derives `demo_robot/manifest.json` from a live observation of the healthy robot (nodes,
+  topics, publishers/subscribers, measured rates, TF edges, declared parameters) instead of it being entirely hand-written. Run in `--merge`
+  (default) mode it keeps human-authored prose (`role`, `description`) and prior rate thresholds, and only reports what it cannot determine on its
+  own (which node broadcasts which TF edge - tf2 does not expose this reliably; falls back to the prior value if still valid, else `null` + a
+  warning, never a guess). Actually run against this repo's demo robot and applied for real: found and added `base_controller.max_wheel_speed`,
+  a real declared parameter that the hand-written manifest had missed (harmless gap - it was simply never compared against - now it is). 9 new
+  unit tests for the merge/diff logic (`tests/test_learn_manifest.py`); tests 159 fast.
 
 
 ## WORKING (verified by running it)
@@ -28,7 +35,7 @@
 - Readiness: `./run_demo.sh` (cold -> READY in ~42 s, blocking model warm-up), `./demo_preflight.sh` (DEMO READY / NOT READY, exit code), status bar with readiness
   indicators + Start demo gate (also the recovery action for a cold model / lost discovery); model timeout / retry shown in the event stream.
 - Dashboard (console layout, see `docs/UI_CLEANUP.md`): System | ROS graph | Investigation event stream, status bar, root cause / proposed action / verification with measured summary, query box at the bottom, collapsible Demo controls. No page scroll at 1366x768 or 1440x900.
-- Tests: 150 fast (`pytest -m "not ros"`; 131 behaviour + 19 documentation checks), 19 live-ROS (`-m ros`). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
+- Tests: 159 fast (`pytest -m "not ros"`; 140 behaviour + 19 documentation checks), 19 live-ROS (`-m ros`). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
 
 ## RELIABILITY INCIDENTS FOUND BY SOAK TESTING (all with evidence in the repo)
 - **ROS client executor crash** (found 06:21): the backend's rclpy executor died with `cannot use Destroyable because destruction was requested`
