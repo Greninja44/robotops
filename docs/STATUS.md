@@ -21,6 +21,15 @@
   warning, never a guess). Actually run against this repo's demo robot and applied for real: found and added `base_controller.max_wheel_speed`,
   a real declared parameter that the hand-written manifest had missed (harmless gap - it was simply never compared against - now it is). 9 new
   unit tests for the merge/diff logic (`tests/test_learn_manifest.py`); tests 159 fast.
+- **Larger fault library**: two new injectable faults, `commander_stall` (`velocity_commander` hangs: `/cmd_vel` silent) and `odometry_stall`
+  (`wheel_odometry` hangs: `/odom` silent, `odom->base_link` stale). Both reuse the existing tool/evidence/safety code unchanged - no new tools, no
+  policy changes - and are fixed by the existing `restart_component`. Chosen because neither was exercised by any prior fault: `commander_stall`
+  makes `base_controller` the node that *complains* (it logs "no velocity commands") while `velocity_commander` is the actual cause, a genuine
+  multi-hop trace; `odometry_stall` is the first fault to hit the `odom->base_link` TF edge (`tf_failure` only ever hit `base_link->laser`). Real
+  runs with `qwen3:4b` (`scripts/diagnose_cli.py`, not scripted): both correctly diagnosed on the first attempt without ever being told the fault
+  set changed, `commander_stall` in 21 s (3 tool calls), `odometry_stall` in 51 s (5 tool calls, one rejected diagnosis needing a second
+  corroborating check first) - both repaired and verified 24/24. 2 new live-ROS tests (`test_ros_integration.py`); fault set is now 7 (+ random).
+  Not yet part of the measured 15/15 acceptance/benchmark numbers, which predate these two faults.
 
 
 ## WORKING (verified by running it)
