@@ -6,14 +6,20 @@
   equivalent via `RosClient.set_parameters`, real service call, no mock) and through the full agent state machine (`tests/test_agent_flow.py`).
   Honest result from three ad hoc real runs of `topic_misconfig`: `qwen3:4b` chose `restart_component` every time even with `set_parameter` legal and
   described as the less disruptive option - the primitive works, the model does not yet prefer it. Tests 150 fast (was 143; +7 for this feature).
-- **Known issue found while validating this change, not caused by it**: `pytest tests -m ros` (the live-ROS suite) reliably fails/hangs in
-  `test_ros_integration.py::test_every_tool_returns_valid_structured_result`'s `robot` fixture (`wait_until(healthy, 60, 2)` times out) when run
-  through `pytest`, even on an unmodified `main` with a freshly reset, genuinely healthy robot (confirmed with `git stash`). The identical
-  reset -> poll-health sequence run as a plain script, outside pytest, succeeds in ~2 s every time. Not yet root-caused; suspected interaction between
-  pytest and the auto-loaded ROS ament/launch_testing pytest plugins (`ament_*`, `launch_testing_ros`, all registered via system-site-packages
-  entry points) rather than anything in `backend/`. The fast suite (150 tests) and a direct exercise of every tool, including the new
-  `set_parameter` repair, against the live robot were used instead to validate this change; the 19 live-ROS tests were not re-verified clean end
-  to end this session.
+- **Known issue found while validating this change, not caused by it - environment, fully exonerates this codebase**: `pytest tests -m ros`
+  (the live-ROS suite) reliably fails/hangs in `test_ros_integration.py::test_every_tool_returns_valid_structured_result`'s `robot` fixture
+  (`wait_until(healthy, 60, 2)` times out) when run through `pytest`, even on an unmodified `main` with a freshly reset, genuinely healthy robot
+  (confirmed with `git stash`). The identical reset -> poll-health sequence run as a plain script, outside pytest, succeeds in ~2 s every time.
+  Investigated further (2026-09-29): the *specific* failure is that the ROS graph is completely invisible for the whole 60 s budget (`get_ros_health`
+  and friends see 0 of 6 nodes, not a flaky partial view). Systematically ruled out: the auto-loaded ROS ament/`launch_testing`/`launch_ros` pytest
+  plugins (`-p no:launch_testing -p no:launch_ros -p no:ament_*` - no change), `pytest-asyncio` (`-p no:asyncio` - no change), and environment/cwd
+  differences (`ROS_DOMAIN_ID`, `CYCLONEDDS_URI`, `RMW_IMPLEMENTATION`, `os.getcwd()` all confirmed identical inside a pytest test function vs the
+  shell). Minimal repro with **zero RobotOps code**: a bare `rclpy.init(); node = rclpy.create_node("x"); node.get_node_names()` inside a one-line
+  pytest test never sees another node for 28+ s, while the identical three lines in a plain script see the graph within ~2 s. This is a pytest
+  process / rclpy·Cyclone DDS discovery interaction in this environment, not a bug in `backend/` or in any test - not yet root-caused beyond that.
+  The fast suite and a direct exercise of every tool (including the new `set_parameter` repair, the two new faults, and incident memory) against
+  the live robot were used instead to validate this round of changes; `./scripts/verify_demo.sh --full` also passed 24/24 through the real backend
+  with every 2026-09-29 feature combined. The 19 (now 21) live-ROS tests were not re-verified clean end to end via `pytest -m ros` this session.
 - **Manifest learning**: `scripts/learn_manifest.py` derives `demo_robot/manifest.json` from a live observation of the healthy robot (nodes,
   topics, publishers/subscribers, measured rates, TF edges, declared parameters) instead of it being entirely hand-written. Run in `--merge`
   (default) mode it keeps human-authored prose (`role`, `description`) and prior rate thresholds, and only reports what it cannot determine on its
