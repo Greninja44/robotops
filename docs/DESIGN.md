@@ -23,6 +23,14 @@ arguments, which would reveal `topic_misconfig`.
 **Approval binding.** A proposal ID is bound to `(action, target)` and consumed on use; the repair executor re-checks
 the allowlist *and* the approval, so a bug in the agent cannot bypass either.
 
+**A second repair primitive stays narrow on purpose.** `set_parameter` is not "let the model set any ROS parameter" - it is one
+hardcoded pair, `base_controller.cmd_vel_topic -> /cmd_vel` (`policies.PARAMETER_FIX`), reached through the same evidence gate,
+approval gate and independent verification as `restart_component`. The model can select it via `recommended_action` (dynamically
+added to both the JSON decision schema and the system prompt from `policies.ACTIONS`, so a third primitive would need no protocol
+change), but only `check_action` decides whether the (action, target) pair is legal. In practice `qwen3:4b` still defaults to
+`restart_component` for `topic_misconfig` even though `set_parameter` is offered as the less disruptive option - the mechanism
+was verified directly against the live node and through the full agent pipeline, not by trusting the model to reach for it.
+
 **Verification is broader than the repaired component.** After a restart the verifier re-measures the whole robot (24 checks)
 so a wrong fix — or a fix that breaks something else — does not count as recovery. A failed verification triggers one more
 investigation round, then a safe stop.

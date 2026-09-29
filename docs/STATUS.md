@@ -1,4 +1,20 @@
-# Status (updated 2026-09-20, hackathon hardening)
+# Status (updated 2026-09-29: second repair primitive)
+
+## UPDATE 2026-09-29 (post-submission, feature freeze lifted)
+- **Second guarded repair primitive**: `set_parameter` (`base_controller.cmd_vel_topic -> /cmd_vel` only, `policies.PARAMETER_FIX`) alongside
+  `restart_component`; same evidence gate, approval gate and independent verification. Verified directly against the live ROS node (`ros2 param set`
+  equivalent via `RosClient.set_parameters`, real service call, no mock) and through the full agent state machine (`tests/test_agent_flow.py`).
+  Honest result from three ad hoc real runs of `topic_misconfig`: `qwen3:4b` chose `restart_component` every time even with `set_parameter` legal and
+  described as the less disruptive option - the primitive works, the model does not yet prefer it. Tests 150 fast (was 143; +7 for this feature).
+- **Known issue found while validating this change, not caused by it**: `pytest tests -m ros` (the live-ROS suite) reliably fails/hangs in
+  `test_ros_integration.py::test_every_tool_returns_valid_structured_result`'s `robot` fixture (`wait_until(healthy, 60, 2)` times out) when run
+  through `pytest`, even on an unmodified `main` with a freshly reset, genuinely healthy robot (confirmed with `git stash`). The identical
+  reset -> poll-health sequence run as a plain script, outside pytest, succeeds in ~2 s every time. Not yet root-caused; suspected interaction between
+  pytest and the auto-loaded ROS ament/launch_testing pytest plugins (`ament_*`, `launch_testing_ros`, all registered via system-site-packages
+  entry points) rather than anything in `backend/`. The fast suite (150 tests) and a direct exercise of every tool, including the new
+  `set_parameter` repair, against the live robot were used instead to validate this change; the 19 live-ROS tests were not re-verified clean end
+  to end this session.
+
 
 ## WORKING (verified by running it)
 - Full loop on the real ROS 2 system: inject -> real failure -> LLM-chosen read-only tools -> evidence-validated diagnosis -> human approval ->
@@ -12,7 +28,7 @@
 - Readiness: `./run_demo.sh` (cold -> READY in ~42 s, blocking model warm-up), `./demo_preflight.sh` (DEMO READY / NOT READY, exit code), status bar with readiness
   indicators + Start demo gate (also the recovery action for a cold model / lost discovery); model timeout / retry shown in the event stream.
 - Dashboard (console layout, see `docs/UI_CLEANUP.md`): System | ROS graph | Investigation event stream, status bar, root cause / proposed action / verification with measured summary, query box at the bottom, collapsible Demo controls. No page scroll at 1366x768 or 1440x900.
-- Tests: 143 fast (`pytest -m "not ros"`; 124 behaviour + 19 documentation checks), 19 live-ROS (`-m ros`, all passing on the final code, 3 min 54 s). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
+- Tests: 150 fast (`pytest -m "not ros"`; 131 behaviour + 19 documentation checks), 19 live-ROS (`-m ros`). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
 
 ## RELIABILITY INCIDENTS FOUND BY SOAK TESTING (all with evidence in the repo)
 - **ROS client executor crash** (found 06:21): the backend's rclpy executor died with `cannot use Destroyable because destruction was requested`

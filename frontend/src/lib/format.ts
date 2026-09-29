@@ -3,4 +3,5 @@ export const clock = (ts: number) =>
 
 export const sec = (s: number | null | undefined, d = 1) => (s === null || s === undefined ? '-' : `${s.toFixed(d)} s`)
 
-export const actionVerb = (action: string) => (action === 'restart_component' ? 'restart' : action.replace(/_/g, ' '))
+const ACTION_VERBS: Record<string, string> = { restart_component: 'restart', set_parameter: 'reconfigure' }
+export const actionVerb = (action: string) => ACTION_VERBS[action] ?? action.replace(/_/g, ' ')

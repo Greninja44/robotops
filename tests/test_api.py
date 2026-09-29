@@ -17,9 +17,13 @@ def api(tmp_audit, monkeypatch):
 def test_tools_endpoint_lists_read_only_and_gated_actions(api):
     d = api.get("/api/tools").json()
     assert "inspect_topic" in {t["name"] for t in d["read_only"]}
-    assert d["state_changing"] == [{"action": "restart_component", "description": d["state_changing"][0]["description"],
-                                    "requires_approval": True}]
+    sc = {x["action"]: x for x in d["state_changing"]}
+    assert set(sc) == {"restart_component", "set_parameter"}
+    assert all(x["requires_approval"] is True and x["description"] for x in sc.values())
     assert set(d["repairable_components"]) >= {"base_controller", "lidar_driver"}
+    pf = d["parameter_fixable_components"]
+    assert set(pf) == {"base_controller"}
+    assert pf["base_controller"]["param"] == "cmd_vel_topic" and pf["base_controller"]["value"] == "/cmd_vel"
 
 
 def test_faults_endpoint(api):

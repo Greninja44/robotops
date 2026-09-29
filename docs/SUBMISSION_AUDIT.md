@@ -13,9 +13,9 @@ the judges' questions on its own. This page lists the questions, where the answe
 | Does it touch a real ROS 2 system? | Yes: `rclpy` tools against a running 6-node demo robot with real DDS traffic; faults are real process failures injected by a supervisor. | [Architecture](../README.md#architecture), `backend/ros_tools/`, `demo_robot/` |
 | What prevents hallucinated diagnoses? | The LLM cites evidence IDs; code checks that the IDs exist, come from ≥ 2 different tool calls, include an anomaly about the named component, and that the action is allowlisted. Otherwise: inconclusive, no repair. | [Real investigation example](../README.md#real-investigation-example), `backend/agent/diagnosis.py` |
 | Is the repair autonomous? | The investigation and diagnosis are autonomous; the *state change* is deliberately gated by a human approval (single-use, bound to action + target). | [Safety model](../README.md#safety-model) |
-| What are the safety mechanisms? | Read-only tools by default, evidence gate, approval gate, one-primitive allowlist, no shell, audit log, step/turn/timeout caps, independent 24-check verification. | [Safety model](../README.md#safety-model), `backend/safety/`, `tests/test_safety.py` |
+| What are the safety mechanisms? | Read-only tools by default, evidence gate, approval gate, narrow allowlist (two primitives), no shell, audit log, step/turn/timeout caps, independent 24-check verification. | [Safety model](../README.md#safety-model), `backend/safety/`, `tests/test_safety.py` |
 | Does it work? | A real, uncut recording; hero 10/10 consecutive runs; random hidden fault 15/15 on the five-fault set; 24/24 verification each. | README top, [Results](../README.md#results) |
-| How was it tested? | 143 fast tests (124 behaviour, 19 documentation checks) and 19 live-ROS tests, a fault-identity-leak test plus prompt audit, soak runs that found and fixed real bugs (documented in [STATUS.md](STATUS.md)). | [Testing](../README.md#testing) |
+| How was it tested? | 150 fast tests (131 behaviour, 19 documentation checks) and 19 live-ROS tests, a fault-identity-leak test plus prompt audit, soak runs that found and fixed real bugs (documented in [STATUS.md](STATUS.md)). | [Testing](../README.md#testing) |
 | How do I run it? | `./scripts/setup.sh`, `./run_demo.sh`, open the dashboard; requirements listed first. | [Quick start](../README.md#quick-start), [SETUP.md](SETUP.md) |
 
 ## 2. Rubric mapping (with evidence, without unmeasured claims)
@@ -52,9 +52,13 @@ the judges' questions on its own. This page lists the questions, where the answe
 - **The robot is a simulation of failure modes** (real processes and DDS, no hardware/Gazebo). The tool layer is generic; the healthy manifest and dashboard layout are written for the demo robot.
 - **Small samples and one machine.** 10–15 runs per measurement; no confidence intervals; not measured on a quiet machine or another GPU.
 - **Small model behaviour.** `qwen3:4b` can misread a value; the validator prevents a wrong repair from running but the run can end inconclusive. Some process rules are enforced in code because the model otherwise loops. For a given fault and seed the tool sequence is repeatable (model-driven, but not broadly exploratory).
-- **One repair primitive** (`restart_component`).
+- **Narrow repair primitives.** `restart_component` and one `set_parameter` fix (`base_controller.cmd_vel_topic` only, added 2026-09-29 alongside a fault-library/incident-memory/manifest-learning round of post-submission work; see [README → Fault scenarios](../README.md#fault-scenarios) for what was actually observed of the model's own choice between them).
 - **Git history.** The full development history is preserved, including earlier README versions, the removed unrelated process names in older commits' benchmark files, and the failed early benchmark runs. Nothing was rewritten.
-- **Repository visibility.** The repository is private; whoever evaluates it needs access (see [GITHUB_SUBMISSION.md](GITHUB_SUBMISSION.md)).
+- **Repository visibility.** Public as of this update; see [GITHUB_SUBMISSION.md](GITHUB_SUBMISSION.md) for the description/topics/licence items still outstanding.
+- **Live-ROS test suite (`pytest -m ros`) has an unresolved flake**, found while validating the 2026-09-29 changes: it reliably times out in one
+  fixture under `pytest` specifically, even on an unmodified checkout with a genuinely healthy robot (the same operations succeed in ~2 s as a plain
+  script). Not caused by this session's changes; not yet root-caused. See [STATUS.md](STATUS.md). The 150 fast tests and a direct exercise of every
+  tool against the live robot were used instead.
 
 ## 5. Final judge test (README only)
 

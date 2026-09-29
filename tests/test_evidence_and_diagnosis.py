@@ -46,6 +46,27 @@ def test_valid_diagnosis_is_accepted_with_derived_score():
     assert d.confidence == 0.7 and any("base 0.30" in b for b in d.confidence_basis)
 
 
+def test_set_parameter_is_a_selectable_recommended_action_with_its_own_expected_result():
+    l = _ledger_with_controller_fault()
+    d, errors = diagnosis.validate({"root_cause": "cmd_vel_topic misconfigured", "faulty_component": "base_controller",
+                                    "evidence_ids": ["E1", "E3"], "recommended_action": "set_parameter"}, l)
+    assert errors == [] and d.recommended_action.action == "set_parameter"
+    assert d.recommended_action.risk == "low"
+    assert d.recommended_action.expected_result != ""
+    restart, _ = diagnosis.validate({"root_cause": "x", "faulty_component": "base_controller",
+                                     "evidence_ids": ["E1", "E3"], "recommended_action": "restart_component"}, l)
+    assert restart.recommended_action.expected_result != d.recommended_action.expected_result   # action-specific text
+
+
+def test_set_parameter_rejected_for_a_component_with_no_allowlisted_fix():
+    l = EvidenceLedger()
+    l.add(make_result("check_tf", [("base_link->laser transform stale", True, ["/tf_broadcaster"])]), 1)
+    l.add(make_result("inspect_node", [("tf_broadcaster: last publish 6s ago", True, ["/tf_broadcaster"])]), 2)
+    d, errors = diagnosis.validate({"root_cause": "tf hung", "faulty_component": "tf_broadcaster",
+                                    "evidence_ids": ["E1", "E2"], "recommended_action": "set_parameter"}, l)
+    assert d is None and "no allowlisted parameter fix" in errors[0]
+
+
 def test_invented_evidence_ids_are_rejected():
     l = _ledger_with_controller_fault()
     d, errors = diagnosis.validate({"root_cause": "x", "faulty_component": "base_controller",

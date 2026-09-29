@@ -95,6 +95,27 @@ async def test_full_loop_resolves_only_after_approval_and_verification(env):
         assert k in kinds
 
 
+async def test_full_loop_resolves_via_the_set_parameter_repair(env, monkeypatch):
+    """End-to-end coverage of the second guarded repair primitive: diagnose -> approve -> set_parameter -> verify,
+    all the way through the real agent state machine (not just the unit-level policy/repair tests)."""
+    calls = []
+    monkeypatch.setattr(repair_mod.ros_client, "get_client",
+                        lambda: type("C", (), {"set_parameters": staticmethod(
+                            lambda full_name, values: calls.append((full_name, values)) or
+                            {"results": [{"name": k, "successful": True, "reason": ""} for k in values], "all_successful": True})})())
+    agent, approvals = make_agent(env, [call("inspect_topic", topic="/cmd_vel"), call("get_component_status"),
+                                        diag(action="set_parameter", cause="cmd_vel_topic misconfigured")])
+    inv = Investigation("robot stopped")
+    task = asyncio.create_task(agent.run(inv))
+    await approve_when_pending(inv, approvals, approve=True)
+    await task
+    assert inv.phase == Phase.RESOLVED
+    assert inv.repair["executed"] is True and inv.repair["action"] == "set_parameter"
+    assert inv.repair["parameter_service_response"]["all_successful"] is True
+    assert calls == [("/base_controller", {"cmd_vel_topic": "/cmd_vel"})]
+    assert env["executed"] == []                                     # the process was never restarted
+
+
 async def test_rejected_proposal_executes_nothing(env):
     agent, approvals = make_agent(env, [call("inspect_topic", topic="/cmd_vel"), call("get_component_status"), diag(ids=("E2", "E4"))])
     inv = Investigation("q")

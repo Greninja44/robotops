@@ -23,6 +23,55 @@ def test_every_repairable_component_is_a_manifest_component_and_has_risk():
     assert all(v["risk"] in ("low", "medium", "high") for v in policies.REPAIRABLE.values())
 
 
+def test_set_parameter_is_allowlisted_for_one_component_only():
+    """A second, narrower guarded repair primitive: only base_controller.cmd_vel_topic, to one canonical value."""
+    assert set(policies.PARAMETER_FIX) <= set(policies.components())
+    pol = policies.check_action("set_parameter", "base_controller")
+    assert pol == {"action": "set_parameter", "target": "base_controller", "risk": "low", "requires_approval": True}
+    with pytest.raises(policies.PolicyViolation, match="no allowlisted parameter fix"):
+        policies.check_action("set_parameter", "lidar_driver")          # restart_component-only component
+    with pytest.raises(policies.PolicyViolation):
+        policies.check_action("set_parameter", "/bin/sh")
+
+
+def test_expected_result_is_action_aware():
+    restart_text = policies.expected_result("restart_component", "base_controller")
+    param_text = policies.expected_result("set_parameter", "base_controller")
+    assert restart_text and param_text and restart_text != param_text
+    assert policies.expected_result("set_parameter", "lidar_driver") == ""      # no fix defined -> no claim made
+
+
+def test_set_parameter_repair_calls_the_ros_client_not_the_supervisor(monkeypatch):
+    calls = []
+    monkeypatch.setattr(repair.supervisor, "restart", lambda c: pytest.fail("must not restart the process"))
+
+    class FakeClient:
+        def set_parameters(self, full_name, values):
+            calls.append((full_name, values))
+            return {"results": [{"name": k, "successful": True, "reason": ""} for k in values], "all_successful": True}
+    monkeypatch.setattr(repair.ros_client, "get_client", lambda: FakeClient())
+    reg = ApprovalRegistry()
+    p = reg.create("inv", "set_parameter", "base_controller")
+    reg.decide(p.id, True)
+    res = repair.execute(reg, p.id, "set_parameter", "base_controller")
+    assert res["executed"] is True and res["action"] == "set_parameter"
+    assert calls == [("/base_controller", {"cmd_vel_topic": "/cmd_vel"})]
+
+
+def test_set_parameter_repair_reports_failure_without_raising(monkeypatch):
+    def boom(full_name, values):
+        raise TimeoutError("parameter service of /base_controller not available")
+
+    class FakeClient:
+        set_parameters = staticmethod(boom)
+    monkeypatch.setattr(repair.ros_client, "get_client", lambda: FakeClient())
+    reg = ApprovalRegistry()
+    p = reg.create("inv", "set_parameter", "base_controller")
+    reg.decide(p.id, True)
+    res = repair.execute(reg, p.id, "set_parameter", "base_controller")
+    assert res["executed"] is False and "TimeoutError" in res["error"]
+
+
 def test_repair_refused_without_approval(monkeypatch):
     calls = []
     monkeypatch.setattr(repair.supervisor, "restart", lambda c: calls.append(c) or {"ok": True})

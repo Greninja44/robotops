@@ -129,7 +129,7 @@ def validate(raw: dict, ledger: EvidenceLedger) -> tuple[Diagnosis | None, list[
             pol = policies.check_action(action, component)
         except policies.PolicyViolation as e:
             return None, [str(e)]
-        rec = ProposedAction(**pol, reason=root_cause, expected_result=policies.EXPECTED_RESULT.get(component, ""))
+        rec = ProposedAction(**pol, reason=root_cause, expected_result=policies.expected_result(action, component))
     return Diagnosis(status="diagnosed", root_cause=root_cause, faulty_component=component, evidence=cited,
                      confidence=score, confidence_basis=basis, recommended_action=rec,
                      uncited_anomalies=uncited), []

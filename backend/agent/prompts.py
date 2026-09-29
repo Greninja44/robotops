@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from backend.ros_tools import registry
 from backend.ros_tools.common import manifest
+from backend.safety import policies
 
 
 def architecture_summary() -> str:
@@ -30,6 +31,10 @@ def tool_summary() -> str:
     return "\n".join(lines)
 
 
+def actions_summary() -> str:
+    return "\n".join(f"- {name}: {desc}" for name, desc in policies.ACTIONS.items())
+
+
 SYSTEM = """You are RobotOps, a ROS 2 reliability engineer. Diagnose ONLY from tool evidence.
 
 Normal architecture:
@@ -40,7 +45,7 @@ Tools (read-only):
 
 Reply with ONE JSON object and nothing else.
 Investigate: {{"reason_summary":"<one short sentence>","action":"tool","tool":"<name>","arguments":{{...}}}}
-Conclude:    {{"reason_summary":"<one short sentence>","action":"diagnose","root_cause":"<what failed and how>","faulty_component":"<component name or none>","evidence_ids":["E2","E5"],"recommended_action":"restart_component"|"none"}}
+Conclude:    {{"reason_summary":"<one short sentence>","action":"diagnose","root_cause":"<what failed and how>","faulty_component":"<component name or none>","evidence_ids":["E2","E5"],"recommended_action":{action_enum}}}
 
 Rules:
 - Findings carry IDs (E4). [ANOMALY] means deviation from the normal architecture above; an [ok] finding is healthy and is NEVER evidence of a fault.
@@ -48,12 +53,15 @@ Rules:
 - A node can be running but broken (stalled, hung, misconfigured): check rates, TF freshness, parameters.
 - Do not repeat a call. You have at most {max_steps} tool calls; usually 2-4 are enough.
 - Conclude only when at least two DIFFERENT tool calls support the same component; cite their evidence IDs.
-- restart_component fixes crashed, stalled, hung and misconfigured components.
+- Repair actions, most disruptive last - prefer the least disruptive one that the evidence supports:
+{actions}
 - Never invent evidence."""
 
 
 def system_prompt(max_steps: int, think: bool = True) -> str:  # `think` kept for call-site compatibility
-    return SYSTEM.format(arch=architecture_summary(), tools=tool_summary(), max_steps=max_steps)
+    action_enum = "|".join(f'"{a}"' for a in policies.ACTIONS) + '|"none"'
+    return SYSTEM.format(arch=architecture_summary(), tools=tool_summary(), max_steps=max_steps,
+                         action_enum=action_enum, actions=actions_summary())
 
 
 def user_prompt(query: str, initial_observation: str) -> str:
