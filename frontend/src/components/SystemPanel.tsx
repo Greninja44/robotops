@@ -8,6 +8,7 @@ const COMPONENTS: [string, string][] = [
 const FAULTS: [string, string][] = [
   ['controller_crash', 'Controller crash'], ['lidar_failure', 'LiDAR failure'], ['tf_failure', 'TF failure'],
   ['topic_misconfig', 'Topic mismatch'], ['node_crash', 'Node crash'],
+  ['commander_stall', 'Commander stall'], ['odometry_stall', 'Odometry stall'],
 ]
 
 export function SystemPanel({ health, graph, readiness, preparing, running, locked, connected }: {

@@ -24,7 +24,8 @@ GROUND_TRUTH = ROOT / "demo_robot" / "state" / "ground_truth.json"
 AUDIT = ROOT / "logs" / "audit.jsonl"
 QUERY = "Diagnose the robot."
 EXPECTED = {"controller_crash": "base_controller", "lidar_failure": "lidar_driver", "tf_failure": "tf_broadcaster",
-            "topic_misconfig": "base_controller", "node_crash": "obstacle_monitor"}
+            "topic_misconfig": "base_controller", "node_crash": "obstacle_monitor",
+            "commander_stall": "velocity_commander", "odometry_stall": "wheel_odometry"}
 TERMINAL = {"resolved", "repair_failed", "rejected", "inconclusive", "healthy", "diagnosed", "error"}
 
 

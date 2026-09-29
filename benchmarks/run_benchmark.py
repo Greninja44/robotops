@@ -42,6 +42,8 @@ EXPECTED_COMPONENT = {
     "tf_failure": "tf_broadcaster",
     "topic_misconfig": "base_controller",
     "node_crash": "obstacle_monitor",
+    "commander_stall": "velocity_commander",
+    "odometry_stall": "wheel_odometry",
 }
 QUERY = "Diagnose the robot."
 
