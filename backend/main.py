@@ -212,7 +212,8 @@ async def tools():
     return {"read_only": [s["function"] for s in registry.llm_tool_specs()],
             "state_changing": [{"action": a, "description": d, "requires_approval": True}
                                for a, d in policies.ACTIONS.items()],
-            "repairable_components": policies.REPAIRABLE}
+            "repairable_components": policies.REPAIRABLE,
+            "parameter_fixable_components": policies.PARAMETER_FIX}
 
 
 class ToolRun(BaseModel):

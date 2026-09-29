@@ -246,6 +246,37 @@ class RosClient:
             self.node.destroy_client(lc)
             self.node.destroy_client(gc)
 
+    def set_parameters(self, full_name: str, values: dict, timeout: float = 2.0) -> dict:
+        """Set parameters on a live node via its /set_parameters service (no restart). Used only by the
+        allowlisted set_parameter repair primitive - `values` always comes from policies.PARAMETER_FIX,
+        never directly from the LLM."""
+        self.require()
+        from rcl_interfaces.msg import Parameter as ParamMsg, ParameterType, ParameterValue
+        from rcl_interfaces.srv import SetParameters
+        sc = self.node.create_client(SetParameters, f"{full_name}/set_parameters")
+        try:
+            if not sc.wait_for_service(timeout_sec=timeout):
+                raise TimeoutError(f"parameter service of {full_name} not available")
+            params = []
+            for name, value in values.items():
+                if isinstance(value, bool):
+                    pv = ParameterValue(type=ParameterType.PARAMETER_BOOL, bool_value=value)
+                elif isinstance(value, int):
+                    pv = ParameterValue(type=ParameterType.PARAMETER_INTEGER, integer_value=value)
+                elif isinstance(value, float):
+                    pv = ParameterValue(type=ParameterType.PARAMETER_DOUBLE, double_value=value)
+                elif isinstance(value, str):
+                    pv = ParameterValue(type=ParameterType.PARAMETER_STRING, string_value=value)
+                else:
+                    raise TypeError(f"unsupported parameter type for {name!r}: {type(value).__name__}")
+                params.append(ParamMsg(name=name, value=pv))
+            res = self._call(sc, SetParameters.Request(parameters=params), timeout)
+            results = [{"name": n, "successful": r.successful, "reason": r.reason}
+                      for n, r in zip(values, res.results)]
+            return {"results": results, "all_successful": all(r["successful"] for r in results)}
+        finally:
+            self.node.destroy_client(sc)
+
     def _call(self, client, req, timeout):
         fut = client.call_async(req)
         end = time.monotonic() + timeout

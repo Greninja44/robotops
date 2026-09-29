@@ -11,7 +11,10 @@ from backend.ros_tools.common import component_subjects, manifest
 
 # action -> description. Nothing else can be executed.
 ACTIONS = {
-    "restart_component": "Stop the component's process and start it again with its canonical configuration",
+    "restart_component": "Stop the component's process and start it again with its canonical configuration "
+                         "(fixes crashed, stalled or hung components)",
+    "set_parameter": "Set a single allowlisted parameter on a running component back to its canonical value, "
+                     "without a restart (fixes a component that is running but misconfigured)",
 }
 
 # Only components of the demo robot are repairable, with an explicit risk rating.
@@ -33,6 +36,19 @@ EXPECTED_RESULT = {
     "velocity_commander": "/cmd_vel publishing at >= 5 Hz",
 }
 
+# set_parameter allowlist: component -> the ONE parameter it may be set to and its canonical value.
+# Deliberately narrow (no arbitrary parameter, no arbitrary value) - this is a second guarded repair
+# primitive, not a general parameter-setting capability.
+PARAMETER_FIX = {
+    "base_controller": {"param": "cmd_vel_topic", "value": "/cmd_vel", "risk": "low",
+                        "note": "live parameter update, no process restart; velocity commands keep flowing"},
+}
+
+PARAM_EXPECTED_RESULT = {
+    "base_controller": "base_controller subscribed to /cmd_vel again (parameter corrected live, no restart), "
+                       "/wheel_states flowing",
+}
+
 MIN_EVIDENCE_FOR_REPAIR = 2
 
 
@@ -44,9 +60,18 @@ def check_action(action: str, target: str) -> dict:
     """Raise PolicyViolation unless (action, target) is allowlisted. Returns the policy entry."""
     if action not in ACTIONS:
         raise PolicyViolation(f"action {action!r} is not allowlisted (allowed: {', '.join(ACTIONS)})")
+    if action == "set_parameter":
+        if target not in PARAMETER_FIX:
+            raise PolicyViolation(f"target {target!r} has no allowlisted parameter fix "
+                                  f"(only {', '.join(PARAMETER_FIX)}; use restart_component instead)")
+        return {"action": action, "target": target, "risk": PARAMETER_FIX[target]["risk"], "requires_approval": True}
     if target not in REPAIRABLE:
         raise PolicyViolation(f"target {target!r} is not an allowlisted demo component")
     return {"action": action, "target": target, "risk": REPAIRABLE[target]["risk"], "requires_approval": True}
+
+
+def expected_result(action: str, target: str) -> str:
+    return (PARAM_EXPECTED_RESULT if action == "set_parameter" else EXPECTED_RESULT).get(target, "")
 
 
 def evidence_supports_target(evidence: list, target: str) -> list:

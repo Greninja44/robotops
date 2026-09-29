@@ -36,6 +36,8 @@ BAD=$(curl -sf -m 20 -X POST "$API/api/tools/inspect_topic" -H 'content-type: ap
 [[ "$(echo "$BAD" | jget "(not d['success']) and 'invalid argument' in d['error']")" == "True" ]] && ok "malicious tool argument rejected" || bad "malicious tool argument rejected"
 NS=$(curl -sf -m 20 -X POST "$API/api/tools/restart_component" -H 'content-type: application/json' -d '{"args":{"target":"base_controller"}}' || echo '{}')
 [[ "$(echo "$NS" | jget "not d['success']")" == "True" ]] && ok "state-changing tool is not callable via the tool API" || bad "state-changing tool is not callable via the tool API"
+NS2=$(curl -sf -m 20 -X POST "$API/api/tools/set_parameter" -H 'content-type: application/json' -d '{"args":{"target":"base_controller"}}' || echo '{}')
+[[ "$(echo "$NS2" | jget "not d['success']")" == "True" ]] && ok "set_parameter is also not callable via the tool API" || bad "set_parameter is also not callable via the tool API"
 
 echo "-- fault injection"
 RES=$(curl -sf -m 20 -X POST "$API/api/faults/inject" -H 'content-type: application/json' -d '{"fault":"controller_crash"}' || echo '{}')
