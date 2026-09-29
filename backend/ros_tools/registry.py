@@ -40,6 +40,9 @@ READ_ONLY_TOOLS = {
     "get_component_status": (nodes.get_component_status,
                              "Process manager view: which component processes are running or have exited (exit codes).",
                              {}, []),
+    "check_sensor_data": (topics.check_sensor_data,
+                          "Sample a topic's actual data (not just rate) and flag frozen/implausible readings (LaserScan).",
+                          _TOPIC, []),
 }
 
 # Implemented but not offered to the LLM (inspect_topic covers them); used by UI/tests.

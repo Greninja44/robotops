@@ -113,3 +113,43 @@ def measure_topic_rate(client, r, topic: str, duration: float = 3.0):
         r.anomaly(f"{topic}: {rate:.1f} Hz is below the expected minimum {exp['min_rate_hz']} Hz", topic, *pubs)
     else:
         r.normal(f"{topic}: publishing at {rate:.1f} Hz - healthy (measured over a {duration:.0f} s window)", topic, *pubs)
+
+
+@tool("check_sensor_data")
+def check_sensor_data(client, r, topic: str = "/scan"):
+    """Content-level check: a topic can publish at a healthy rate while the *data* is wrong (a stuck/saturated
+    sensor). Presence and rate alone (list_topics, measure_topic_rate) cannot see this - only sampling the
+    actual message content can. Currently understands LaserScan (checks its `ranges`); other message types are
+    reported as not checkable rather than silently passed as healthy."""
+    topic = ros_name(topic, "topic")
+    r.args["topic"] = topic
+    exp = manifest()["topics"].get(topic)
+    pubs = exp["publishers"] if exp else []
+    s = client.sample_topic(topic, 1.5, keep=True)
+    if not s["exists"]:
+        r.data.update(exists=False, sampled=0)
+        r.anomaly(f"{topic}: does not exist - nothing to sample", topic, *pubs)
+        return
+    msgs = s["messages"]
+    if not msgs:
+        r.data.update(exists=True, sampled=0)
+        r.anomaly(f"{topic}: 0 messages sampled - cannot check content", topic, *pubs)
+        return
+    last = msgs[-1]
+    if not hasattr(last, "ranges"):
+        r.data.update(exists=True, sampled=len(msgs), content_checkable=False)
+        r.normal(f"{topic}: {len(msgs)} message(s) sampled; content check not implemented for this message type", topic)
+        return
+    values = list(last.ranges)
+    valid = [v for v in values if v == v and v not in (float("inf"), float("-inf"))]   # drop NaN/Inf
+    distinct = len({round(v, 3) for v in valid})
+    r.data.update(exists=True, sampled=len(msgs), content_checkable=True, beams=len(values),
+                  valid_beams=len(valid), distinct_values=distinct,
+                  min_range=round(min(valid), 3) if valid else None, max_range=round(max(valid), 3) if valid else None)
+    if not valid:
+        r.anomaly(f"{topic}: {len(values)} beams but none are valid finite readings", topic, *pubs)
+    elif distinct <= 2:
+        r.anomaly(f"{topic}: {len(valid)} beams but only {distinct} distinct range value(s) (all ~{valid[0]:.2f} m) "
+                  f"- looks frozen/saturated, not a real scan of a room", topic, *pubs)
+    else:
+        r.normal(f"{topic}: {distinct} distinct range values across {len(valid)} beams - looks like real, varying sensor data", topic, *pubs)

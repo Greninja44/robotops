@@ -65,7 +65,7 @@ def test_every_tool_returns_valid_structured_result(robot):
     calls = [("get_ros_health", {}), ("list_nodes", {}), ("list_topics", {}), ("inspect_node", {"node": "/base_controller"}),
              ("inspect_topic", {"topic": "/cmd_vel"}), ("measure_topic_rate", {"topic": "/odom", "duration": 1}),
              ("check_tf", {}), ("inspect_parameters", {"node": "/base_controller"}), ("get_recent_diagnostics", {}),
-             ("get_recent_logs", {}), ("get_component_status", {})]
+             ("get_recent_logs", {}), ("get_component_status", {}), ("check_sensor_data", {"topic": "/scan"})]
     for name, args in calls:
         res = run(robot, name, **args)
         assert isinstance(res, ToolResult) and res.tool == name and res.success, (name, res.error)
@@ -75,7 +75,8 @@ def test_every_tool_returns_valid_structured_result(robot):
 
 def test_healthy_baseline_has_no_anomalies_in_core_tools(robot):
     for name, args in [("list_nodes", {}), ("inspect_topic", {"topic": "/cmd_vel"}), ("check_tf", {}),
-                       ("inspect_parameters", {"node": "/base_controller"}), ("get_recent_diagnostics", {})]:
+                       ("inspect_parameters", {"node": "/base_controller"}), ("get_recent_diagnostics", {}),
+                       ("check_sensor_data", {"topic": "/scan"})]:
         assert anomalies(run(robot, name, **args)) == [], name
 
 
@@ -176,11 +177,26 @@ def test_odometry_stall_produces_real_symptoms(robot):
     assert run(robot, "measure_topic_rate", topic="/wheel_states", duration=1.5).data["rate_hz"] > 5   # rest of robot healthy
 
 
+def test_sensor_drift_produces_real_symptoms(robot):
+    """lidar_driver keeps publishing /scan at its normal rate - measure_topic_rate alone sees nothing wrong.
+    Only content-level inspection (check_sensor_data) catches it: every beam saturates at range_min."""
+    inject_and_wait(robot, "sensor_drift",
+                    lambda: run(robot, "check_sensor_data", topic="/scan").data.get("distinct_values") == 1)
+    assert "/lidar_driver" in robot.node_names()                            # alive, not crashed
+    rate = run(robot, "measure_topic_rate", topic="/scan", duration=1.5)
+    assert rate.data["rate_hz"] > 5 and anomalies(rate) == []               # rate alone looks perfectly healthy
+    content = run(robot, "check_sensor_data", topic="/scan")
+    assert content.data["distinct_values"] == 1 and content.data["min_range"] == content.data["max_range"]
+    assert any("frozen" in t or "saturated" in t for t in anomalies(content))
+    assert wait_until(lambda: any("lidar_driver" in t and ("frozen" in t or "stuck" in t)
+                                  for t in anomalies(run(robot, "get_recent_diagnostics"))), 10)
+
+
 def test_random_fault_response_does_not_reveal_identity(robot):
     res = supervisor.inject("random")
     assert res["ok"] and res["injected"] == "random (hidden)"
     assert not any(f in str(res) for f in ("controller_crash", "lidar_failure", "tf_failure", "topic_misconfig",
-                                           "node_crash", "commander_stall", "odometry_stall"))
+                                           "node_crash", "commander_stall", "odometry_stall", "sensor_drift"))
 
 
 def test_unknown_fault_rejected(robot):

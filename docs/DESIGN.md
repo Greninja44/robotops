@@ -58,6 +58,16 @@ diagnostics, TF and process-status tools the agent already had were enough to di
 inside the existing tool surface, rather than reaching for a new one, is deliberate: it is evidence that the tool layer generalizes, not just
 that this one demo robot happens to be easy.
 
+**A fault that genuinely needed a new tool: content, not just presence or rate.** `sensor_drift` is deliberately different from the faults above -
+`lidar_driver` keeps running and keeps publishing `/scan` at its normal 10 Hz, so `list_nodes` and `measure_topic_rate` both report it perfectly
+healthy. What's wrong is the *data*: every one of the 360 beams saturates at `range_min`. None of the existing 11 tools look inside a message, so
+this one genuinely needed `check_sensor_data` - it samples the most recent message and counts distinct values (a real room scan has hundreds; a
+stuck sensor has one or two). It is scoped narrowly on purpose: it understands `LaserScan.ranges` and nothing else yet, and says so explicitly
+("content check not implemented for this message type") rather than silently passing an unfamiliar message type as healthy - the same
+never-guess discipline as the TF-broadcaster attribution above. Verified directly against the live robot: rate showed no anomaly while drifting
+(confirming presence/rate genuinely can't see this fault), content inspection caught it immediately, and the node's own diagnostics corroborated
+it independently.
+
 **Verification is broader than the repaired component.** After a restart the verifier re-measures the whole robot (24 checks)
 so a wrong fix — or a fix that breaks something else — does not count as recovery. A failed verification triggers one more
 investigation round, then a safe stop.

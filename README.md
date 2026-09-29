@@ -191,7 +191,7 @@ anomalies, not the model's own confidence. The model's private reasoning is neve
 
 # Safety model
 
-- **Read-only tools run automatically.** The LLM's tool list contains 11 read-only ROS tools and nothing that changes state (tested).
+- **Read-only tools run automatically.** The LLM's tool list contains 12 read-only ROS tools and nothing that changes state (tested).
 - **State-changing actions require approval.** A repair needs a proposal that passed the evidence gate and a human approval that is single-use, expires, and is bound to `(action, target)`; replay and action-swapping are refused (tested).
 - **Only allowlisted repairs execute.** `restart_component` on six named demo components, plus one narrower `set_parameter` (base_controller's `cmd_vel_topic`, to its one canonical value only — no arbitrary parameter, no arbitrary value). Anything else raises `PolicyViolation`.
 - **Independent verification.** The state machine cannot go from `REPAIRING` to `RESOLVED`; only 24 live re-measurements of the whole robot can. If they fail: one more investigation round, then *repair failed* and a safe stop.
@@ -210,10 +210,11 @@ anomalies, not the model's own confidence. The model's private reasoning is neve
 | Node crash | `obstacle_monitor` exits: node missing, `/scan` lost its subscriber, `/obstacle_distance` gone | `restart_component obstacle_monitor` |
 | Commander stall *(new)* | `velocity_commander` hangs: `/cmd_vel` at 0 Hz, but `base_controller` (which complains about it) is not the cause - a real multi-hop trace | `restart_component velocity_commander` |
 | Odometry stall *(new)* | `wheel_odometry` hangs: `/odom` at 0 Hz and `odom → base_link` goes stale, while `base_link → laser` and the rest of the robot stay healthy | `restart_component wheel_odometry` |
+| Sensor drift *(new)* | `lidar_driver` keeps publishing `/scan` at a healthy 10 Hz, but every beam saturates at `range_min` (0.12 m) - rate alone looks fine; only content inspection (`check_sensor_data`) catches it | `restart_component lidar_driver` |
 | **Random failure** | one of the above, chosen by the supervisor; its identity is **hidden from the agent** and not returned by the API | whichever the evidence supports |
 
 The repair column describes what the *correct* outcome is; the agent is never told it. Faults are injected into a real, running rclpy demo robot (6 nodes, real DDS traffic), not simulated in the UI.
-*(new)* marks the two faults added after the original submission; verified directly against the live robot (real symptoms confirmed: topic rates, diagnostics, TF) but not yet part of the measured 15/15 acceptance/benchmark numbers below, which predate them.
+*(new)* marks the three faults added after the original submission; verified directly against the live robot (real symptoms confirmed: topic rates, diagnostics, TF, message content) but not yet part of the measured 15/15 acceptance/benchmark numbers below, which predate them.
 
 **A second, narrower repair primitive.** `base_controller` accepts a live `cmd_vel_topic` parameter update (`ros2 param set`, no process restart) as well as a
 restart — a real second option for topic mismatch, not a simulated one: exercised directly against the live node (`ros2 topic hz` on `/cmd_vel` recovers
@@ -235,7 +236,7 @@ Everything below was measured on the demo robot in this repository, on one lapto
 | Hero diagnosis time (query → accepted diagnosis) | **10.6 s median** (7.5–11.3 s) | hero acceptance file |
 | Hero query → recovery verified | 16.4 s median (max 17.1 s); approval → verified 5.4 s median | hero acceptance file |
 | Clean-state benchmark, generic query *"Diagnose the robot."*, 5 faults × 3 | 15/15 correct, repaired, verified; diagnosis median 4.7 s, p95 9.1 s (n = 15) | [`benchmarks/results_20260920_052452.md`](benchmarks/results_20260920_052452.md) |
-| Automated tests | 172 fast tests (153 behaviour, 19 documentation checks) + 21 live-ROS tests, all passing | `pytest tests` |
+| Automated tests | 181 fast tests (162 behaviour, 19 documentation checks) + 22 live-ROS tests, all passing | `pytest tests` |
 
 <details>
 <summary>Per-fault detail of the 15-run benchmark (3 runs per fault, generic query, real model choices)</summary>
@@ -305,7 +306,7 @@ The same sequence, scripted: `.venv/bin/python scripts/ui_hero_demo.py --runs 1`
 The fast suite and the dashboard build also run in CI on every push and pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)); the live-ROS tests and benchmarks need ROS 2 and Ollama, so they run locally.
 
 ```bash
-.venv/bin/python -m pytest tests -m "not ros"       # 172 fast tests (~10 s): validator, state machine, safety policy, approvals, no-fault-leak, timeouts, API, docs links
+.venv/bin/python -m pytest tests -m "not ros"       # 181 fast tests (~10 s): validator, state machine, safety policy, approvals, no-fault-leak, timeouts, API, docs links
 ./scripts/start_demo.sh
 .venv/bin/python -m pytest tests -m ros             # 19 live tests against the running ROS 2 demo robot (~4 min)
 ./scripts/verify_demo.sh --full                     # end-to-end: services, ROS health, tools, fault injection, full diagnose → repair → verify loop
@@ -326,7 +327,7 @@ React 19 + TypeScript + Vite + React Flow (`@xyflow/react`) · `pytest` (+ Playw
 ```text
 backend/
   agent/        state machine, LLM client, prompts, evidence ledger, diagnosis validator, verifier, incident memory
-  ros_tools/    11 read-only rclpy tools, allowlisted repair executor, supervisor client
+  ros_tools/    12 read-only rclpy tools, allowlisted repair executor, supervisor client
   safety/       policy (allowlist, evidence gate), approvals, audit log
   main.py, monitor.py, readiness.py   FastAPI app, live health/graph monitor, preflight logic
 frontend/       React dashboard (src/components, src/lib)

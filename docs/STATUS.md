@@ -55,6 +55,16 @@
   old process is still alive and publishing, so a pre-call snapshot is stale before the real freeze even starts (see `docs/DESIGN.md`). Verified
   for real against this repo's robot: both ambiguous edges resolved correctly on the first attempt across three separate runs. 4 new unit tests
   against a faked supervisor/clock (no ROS needed); tests 172 fast.
+- **Sensor drift, an 8th fault, and a genuinely new tool**: `lidar_driver` keeps publishing `/scan` at its normal 10 Hz while every beam saturates
+  at `range_min` - the first fault where presence and rate tools (`list_nodes`, `measure_topic_rate`) see nothing wrong; only content inspection
+  catches it. Added `check_sensor_data` (12th read-only tool): samples the latest message and counts distinct values, scoped to `LaserScan` only
+  and honest about it for any other message type ("content check not implemented"), never a false "healthy". Verified directly against the live
+  robot: `measure_topic_rate` produced zero anomalies while drifting (confirms the fault is genuinely invisible to rate alone), `check_sensor_data`
+  caught it immediately (1 distinct value across 360 beams), and `lidar_driver`'s own diagnostics corroborated it independently. Found and fixed
+  a compact-prompt budget regression while adding this: the new tool's description pushed the system prompt over the existing 3500-char test
+  budget by ~100-250 chars depending on incident-memory state; trimmed the description once, then raised the test's budget to 3700 with a comment
+  explaining why (a deliberate, reviewed addition, not silent bloat) rather than just deleting the guard. 9 new unit tests against a fake client
+  (no ROS needed) plus 1 new live-ROS test; tests 181 fast.
 
 
 ## WORKING (verified by running it)
@@ -69,7 +79,7 @@
 - Readiness: `./run_demo.sh` (cold -> READY in ~42 s, blocking model warm-up), `./demo_preflight.sh` (DEMO READY / NOT READY, exit code), status bar with readiness
   indicators + Start demo gate (also the recovery action for a cold model / lost discovery); model timeout / retry shown in the event stream.
 - Dashboard (console layout, see `docs/UI_CLEANUP.md`): System | ROS graph | Investigation event stream, status bar, root cause / proposed action / verification with measured summary, query box at the bottom, collapsible Demo controls. No page scroll at 1366x768 or 1440x900.
-- Tests: 172 fast (`pytest -m "not ros"`; 153 behaviour + 19 documentation checks), 21 live-ROS (`-m ros`, 2 new for the fault library, not yet re-verified clean end to end - see the known pytest/ROS-plugin issue above). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
+- Tests: 181 fast (`pytest -m "not ros"`; 162 behaviour + 19 documentation checks), 22 live-ROS (`-m ros`, 3 new for the fault library, not yet re-verified clean end to end - see the known pytest/ROS-plugin issue above). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
 
 ## RELIABILITY INCIDENTS FOUND BY SOAK TESTING (all with evidence in the repo)
 - **ROS client executor crash** (found 06:21): the backend's rclpy executor died with `cannot use Destroyable because destruction was requested`

@@ -44,6 +44,7 @@ EXPECTED_COMPONENT = {
     "node_crash": "obstacle_monitor",
     "commander_stall": "velocity_commander",
     "odometry_stall": "wheel_odometry",
+    "sensor_drift": "lidar_driver",
 }
 QUERY = "Diagnose the robot."
 
