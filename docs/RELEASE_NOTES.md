@@ -14,7 +14,8 @@ that code validates, proposes an allowlisted repair, waits for human approval, a
 - Hero scenario through the dashboard: 10/10 consecutive runs; diagnosis median 10.6 s; question to recovery median 16.4 s; 24/24 checks each; 0 model timeouts.
 - Random hidden fault through the dashboard: 15/15 diagnosed, repaired and verified on the five-fault acceptance set.
 - Clean-state benchmark (5 faults × 3): 15/15; diagnosis median 4.7 s.
-- Tests: 143 fast (124 behaviour + 19 documentation checks) and 19 live-ROS.
+- Tests: 150 fast (131 behaviour + 19 documentation checks) and 19 live-ROS.
+- Second guarded repair primitive: `set_parameter` (base_controller.cmd_vel_topic only), alongside `restart_component`.
 
 ## Known limitations
 Demo topology (not hardware); one repair primitive; small model can be inconclusive; measured on five fault types only; small samples on one machine; ROS 2 Lyrical on Linux/WSL2 only; no LICENSE file yet.
