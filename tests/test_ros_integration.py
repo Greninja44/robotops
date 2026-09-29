@@ -152,10 +152,35 @@ def test_node_crash_produces_real_symptoms(robot):
     assert run(robot, "inspect_topic", topic="/scan").data["subscriber_count"] == 0
 
 
+def test_commander_stall_produces_real_symptoms(robot):
+    """velocity_commander hangs: /cmd_vel goes silent, but base_controller (which complains) is not the cause -
+    the agent has to trace the symptom upstream, past the node that reports it."""
+    inject_and_wait(robot, "commander_stall", lambda: run(robot, "measure_topic_rate", topic="/cmd_vel", duration=1.5).data["rate_hz"] == 0)
+    assert "/velocity_commander" in robot.node_names()                      # alive but silent
+    assert any("/cmd_vel" in t and "not publishing" in t
+              for t in anomalies(run(robot, "measure_topic_rate", topic="/cmd_vel", duration=1.5)))
+    assert wait_until(lambda: any("base_controller" in t and "cmd_vel" in t
+                                  for t in anomalies(run(robot, "get_recent_diagnostics"))), 10)   # the complaint, not the cause
+    assert wait_until(lambda: any("velocity_commander" in t and "STALE" in t
+                                  for t in anomalies(run(robot, "get_recent_diagnostics"))), 10)    # the actual cause
+
+
+def test_odometry_stall_produces_real_symptoms(robot):
+    """wheel_odometry hangs: /odom and the odom->base_link transform both go stale, but base_link->laser (the
+    other TF edge) and the rest of the robot keep working - a different edge than tf_failure affects."""
+    inject_and_wait(robot, "odometry_stall", lambda: run(robot, "measure_topic_rate", topic="/odom", duration=1.5).data["rate_hz"] == 0)
+    assert "/wheel_odometry" in robot.node_names()                          # alive but silent
+    tf = run(robot, "check_tf")
+    assert any("odom" in t and "base_link" in t for t in anomalies(tf))
+    assert not any("laser" in t for t in anomalies(tf))                     # the other edge is unaffected
+    assert run(robot, "measure_topic_rate", topic="/wheel_states", duration=1.5).data["rate_hz"] > 5   # rest of robot healthy
+
+
 def test_random_fault_response_does_not_reveal_identity(robot):
     res = supervisor.inject("random")
     assert res["ok"] and res["injected"] == "random (hidden)"
-    assert not any(f in str(res) for f in ("controller_crash", "lidar_failure", "tf_failure", "topic_misconfig", "node_crash"))
+    assert not any(f in str(res) for f in ("controller_crash", "lidar_failure", "tf_failure", "topic_misconfig",
+                                           "node_crash", "commander_stall", "odometry_stall"))
 
 
 def test_unknown_fault_rejected(robot):
