@@ -22,7 +22,7 @@ from backend.safety import policies
 from backend.safety.approvals import ApprovalError, ApprovalRegistry
 from backend.safety.audit import AuditLog
 
-from . import llm, prompts, verification
+from . import llm, memory, prompts, verification
 from .diagnosis import submit_diagnosis_spec, validate
 from .evidence import format_for_llm
 from .state import Investigation, Phase
@@ -115,6 +115,7 @@ class Agent:
             self._fail(inv, f"{type(e).__name__}: {e}")
         self._log(inv, "investigation_finished", phase=inv.phase.value, tool_calls=inv.tool_calls,
                   error=inv.error, verification=(inv.verification or {}).get("verified"))
+        memory.record(inv)
         return inv
 
     def _selectable_tools(self, seen: dict, allow_diagnose: bool = True, only_diagnose: bool = False,
