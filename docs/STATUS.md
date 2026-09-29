@@ -30,6 +30,16 @@
   set changed, `commander_stall` in 21 s (3 tool calls), `odometry_stall` in 51 s (5 tool calls, one rejected diagnosis needing a second
   corroborating check first) - both repaired and verified 24/24. 2 new live-ROS tests (`test_ros_integration.py`); fault set is now 7 (+ random).
   Not yet part of the measured 15/15 acceptance/benchmark numbers, which predate these two faults.
+- **Incident memory**: `backend/agent/memory.py` - a compact, aggregated log of what the agent itself has diagnosed in past investigations
+  (component, action, repaired, verified), offered to the model as *context* in the system prompt, never as evidence: `diagnosis.validate` has no
+  notion of memory at all, so a diagnosis still needs its own evidence IDs from the current investigation's own ledger. Recording is agent-output
+  only - the module never reads the supervisor's fault-scoring file - so it cannot become a side channel for a hidden fault's identity. Found and
+  fixed a real bug while adding it: `Agent.run()` calls `memory.record()` unconditionally, so every fast unit test that exercises the agent loop
+  was silently appending synthetic incidents to the real `logs/incidents.jsonl` (grew to hundreds of lines from one test run, which is what the
+  "compact system prompt" test caught); fixed with an autouse `isolated_incident_memory` fixture (`tests/conftest.py`) so no test can pollute or be
+  affected by the real log. Verified for real: two genuine `qwen3:4b` runs (`scripts/diagnose_cli.py`) of `controller_crash`, then read the actual
+  system prompt sent for a follow-up investigation and confirmed it names `base_controller` and the past outcome. `GET /api/incidents` exposes the
+  raw log and the summary. 9 new tests (`tests/test_memory.py`) plus one full two-investigation integration test; tests 168 fast.
 
 
 ## WORKING (verified by running it)
@@ -44,7 +54,7 @@
 - Readiness: `./run_demo.sh` (cold -> READY in ~42 s, blocking model warm-up), `./demo_preflight.sh` (DEMO READY / NOT READY, exit code), status bar with readiness
   indicators + Start demo gate (also the recovery action for a cold model / lost discovery); model timeout / retry shown in the event stream.
 - Dashboard (console layout, see `docs/UI_CLEANUP.md`): System | ROS graph | Investigation event stream, status bar, root cause / proposed action / verification with measured summary, query box at the bottom, collapsible Demo controls. No page scroll at 1366x768 or 1440x900.
-- Tests: 159 fast (`pytest -m "not ros"`; 140 behaviour + 19 documentation checks), 19 live-ROS (`-m ros`). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
+- Tests: 168 fast (`pytest -m "not ros"`; 149 behaviour + 19 documentation checks), 21 live-ROS (`-m ros`, 2 new for the fault library, not yet re-verified clean end to end - see the known pytest/ROS-plugin issue above). Also: `scripts/ui_timeout_check.py` drives the real UI against a deliberately stalling fake model server (retry shown, safe stop, nothing repaired).
 
 ## RELIABILITY INCIDENTS FOUND BY SOAK TESTING (all with evidence in the repo)
 - **ROS client executor crash** (found 06:21): the backend's rclpy executor died with `cannot use Destroyable because destruction was requested`

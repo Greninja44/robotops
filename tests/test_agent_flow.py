@@ -116,6 +116,30 @@ async def test_full_loop_resolves_via_the_set_parameter_repair(env, monkeypatch)
     assert env["executed"] == []                                     # the process was never restarted
 
 
+async def test_a_resolved_investigation_becomes_context_for_the_next_one(env):
+    """Integration-level, not just memory.py in isolation: a real Agent.run() records to memory, and the next
+    Agent.run() picks it up in its own system prompt - as context, with the validator none the wiser (it has
+    no notion of memory at all, so the second run still has to cite its own evidence)."""
+    first, _ = make_agent(env, [call("inspect_topic", topic="/cmd_vel"), call("get_component_status"), diag()], auto_approve=True)
+    await first.run(Investigation("q1"))
+
+    env["verdicts"].append({"verified": True, "attempts": 1, "checks": [], "failed": []})   # one per investigation
+    seen_system_prompts = []
+    scripted = Script([call("inspect_topic", topic="/cmd_vel"), call("get_component_status"), diag()])
+
+    async def spy(messages, tools):
+        seen_system_prompts.append(messages[0]["content"])
+        return await scripted(messages, tools)
+    second, _ = make_agent(env, [], auto_approve=True)
+    second.chat = spy
+    inv2 = Investigation("q2")
+    await second.run(inv2)
+
+    assert "base_controller" in seen_system_prompts[0] and "past incident" in seen_system_prompts[0]
+    assert "restart_component" in seen_system_prompts[0]
+    assert inv2.phase == Phase.RESOLVED
+
+
 async def test_rejected_proposal_executes_nothing(env):
     agent, approvals = make_agent(env, [call("inspect_topic", topic="/cmd_vel"), call("get_component_status"), diag(ids=("E2", "E4"))])
     inv = Investigation("q")

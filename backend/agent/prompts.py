@@ -9,6 +9,8 @@ from backend.ros_tools import registry
 from backend.ros_tools.common import manifest
 from backend.safety import policies
 
+from . import memory
+
 
 def architecture_summary() -> str:
     """Compact topology derived from demo_robot/manifest.json (static architecture, not fault identity)."""
@@ -55,13 +57,23 @@ Rules:
 - Conclude only when at least two DIFFERENT tool calls support the same component; cite their evidence IDs.
 - Repair actions, most disruptive last - prefer the least disruptive one that the evidence supports:
 {actions}
-- Never invent evidence."""
+{memory_block}- Never invent evidence."""
+
+
+def memory_block() -> str:
+    """Past incidents this agent itself diagnosed, as compact context - not evidence. Empty when there is no
+    history yet (a fresh log, or ROBOTOPS_INCIDENT_LOG cleared), in which case the prompt is unchanged."""
+    m = memory.summary()
+    if not m:
+        return ""
+    return ("- Past incidents (context only - you must still cite THIS investigation's own evidence IDs; "
+           f"memory is never evidence):\n{m}\n")
 
 
 def system_prompt(max_steps: int, think: bool = True) -> str:  # `think` kept for call-site compatibility
     action_enum = "|".join(f'"{a}"' for a in policies.ACTIONS) + '|"none"'
     return SYSTEM.format(arch=architecture_summary(), tools=tool_summary(), max_steps=max_steps,
-                         action_enum=action_enum, actions=actions_summary())
+                         action_enum=action_enum, actions=actions_summary(), memory_block=memory_block())
 
 
 def user_prompt(query: str, initial_observation: str) -> str:

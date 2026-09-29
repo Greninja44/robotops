@@ -60,3 +60,11 @@ Domain 73 + localhost discovery keeps RobotOps isolated from other ROS systems o
 
 **Thinking off by default** (`ROBOTOPS_THINK=1` to enable): qwen3:4b steps take ~10 s instead of ~25–30 s; diagnoses were the
 same in our comparison.
+
+**Incident memory is context, structurally incapable of being evidence.** `backend/agent/memory.py` records what the agent itself
+concluded after each investigation (component, action, repaired, verified - never the supervisor's own fault-scoring record) and
+offers a compact, per-component summary in the system prompt. `diagnosis.validate` never sees it: memory has no evidence IDs, so
+there is nothing for the model to cite even if it wanted to - a diagnosis still needs its own `E`-numbered citations from the
+current investigation's own ledger. The summary is capped to the N most recently seen components regardless of how large the log
+grows, for the same reason the manifest and tool schemas stay compact: an uncontrolled prompt is what made the first version of
+the agent take 92 s (`docs/PERFORMANCE.md`).

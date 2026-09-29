@@ -17,7 +17,7 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from backend import readiness
-from backend.agent import llm
+from backend.agent import llm, memory
 from backend.agent.graph import Agent
 from backend.agent.state import Investigation, Phase
 from backend.monitor import Monitor
@@ -347,6 +347,13 @@ async def reset_demo():
 @app.get("/api/audit")
 async def audit(n: int = 200):
     return S.audit.tail(max(1, min(n, 2000)))
+
+
+@app.get("/api/incidents")
+async def incidents():
+    """What the agent itself has concluded in past investigations (never ground truth) and the compact summary
+    offered to it as context on the next one - see backend/agent/memory.py."""
+    return {"incidents": memory.all_incidents(), "summary": memory.summary()}
 
 
 # ---------------------------------------------------------------------------- websocket
