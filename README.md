@@ -124,6 +124,13 @@ no fault identifier appears in any recorded model input. The tool sequence reall
 `get_recent_diagnostics → check_tf → measure_topic_rate` for a LiDAR failure ([benchmark table](benchmarks/results_20260920_052452.md)). Honest
 caveat: with a fixed sampling seed the same fault gives the same sequence, and the small model has habits (see [Limitations](#limitations)).
 
+**Incident memory is context, never evidence.** `backend/agent/memory.py` records what the agent itself concluded after each investigation
+(component, repair, verified) and offers a compact, aggregated summary of past incidents in the system prompt — *"base_controller: 3 past
+incident(s); most recently restart_component (verified)"*. The evidence validator has no notion of memory at all: there is nothing in it the
+model could cite even if it wanted to, so a diagnosis still needs its own evidence IDs from the current investigation. Verified with two genuine
+`qwen3:4b` runs — the second investigation's actual system prompt was read back and confirmed to name the component and outcome from the first.
+`GET /api/incidents` exposes the log; it persists across investigations until `logs/incidents.jsonl` is deleted.
+
 # Real investigation example
 
 Real trace of the controller-failure scenario behind the recording above (query: *"Robot stopped moving. Diagnose it."*, investigation `3c9c268e70`).
@@ -228,7 +235,7 @@ Everything below was measured on the demo robot in this repository, on one lapto
 | Hero diagnosis time (query → accepted diagnosis) | **10.6 s median** (7.5–11.3 s) | hero acceptance file |
 | Hero query → recovery verified | 16.4 s median (max 17.1 s); approval → verified 5.4 s median | hero acceptance file |
 | Clean-state benchmark, generic query *"Diagnose the robot."*, 5 faults × 3 | 15/15 correct, repaired, verified; diagnosis median 4.7 s, p95 9.1 s (n = 15) | [`benchmarks/results_20260920_052452.md`](benchmarks/results_20260920_052452.md) |
-| Automated tests | 159 fast tests (140 behaviour, 19 documentation checks) + 19 live-ROS tests, all passing | `pytest tests` |
+| Automated tests | 168 fast tests (149 behaviour, 19 documentation checks) + 19 live-ROS tests, all passing | `pytest tests` |
 
 <details>
 <summary>Per-fault detail of the 15-run benchmark (3 runs per fault, generic query, real model choices)</summary>
@@ -298,7 +305,7 @@ The same sequence, scripted: `.venv/bin/python scripts/ui_hero_demo.py --runs 1`
 The fast suite and the dashboard build also run in CI on every push and pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)); the live-ROS tests and benchmarks need ROS 2 and Ollama, so they run locally.
 
 ```bash
-.venv/bin/python -m pytest tests -m "not ros"       # 159 fast tests (~10 s): validator, state machine, safety policy, approvals, no-fault-leak, timeouts, API, docs links
+.venv/bin/python -m pytest tests -m "not ros"       # 168 fast tests (~10 s): validator, state machine, safety policy, approvals, no-fault-leak, timeouts, API, docs links
 ./scripts/start_demo.sh
 .venv/bin/python -m pytest tests -m ros             # 19 live tests against the running ROS 2 demo robot (~4 min)
 ./scripts/verify_demo.sh --full                     # end-to-end: services, ROS health, tools, fault injection, full diagnose → repair → verify loop
@@ -317,7 +324,7 @@ React 19 + TypeScript + Vite + React Flow (`@xyflow/react`) · `pytest` (+ Playw
 
 ```text
 backend/
-  agent/        state machine, LLM client, prompts, evidence ledger, diagnosis validator, verifier
+  agent/        state machine, LLM client, prompts, evidence ledger, diagnosis validator, verifier, incident memory
   ros_tools/    11 read-only rclpy tools, allowlisted repair executor, supervisor client
   safety/       policy (allowlist, evidence gate), approvals, audit log
   main.py, monitor.py, readiness.py   FastAPI app, live health/graph monitor, preflight logic
@@ -338,6 +345,7 @@ run_demo.sh, demo_preflight.sh
 - **Small model.** `qwen3:4b` can misread evidence (it once read "40 messages in 4.0 s" as 4 Hz). The validator rejected that diagnosis, so no wrong repair ran, but a run can then end *inconclusive*. It also has habits (it opens with `get_recent_diagnostics` in most runs), and several process rules (own checks before concluding, no repeated tools) are enforced in code because the model otherwise loops.
 - **Bounded fault set.** The measurements cover the five injected failure modes only. Behaviour on unfamiliar failures is untested; the design intent is *inconclusive, no repair*, not a guess.
 - **Platform.** Developed on WSL2, where DDS needs the fragmentation settings in [`config/cyclonedds.xml`](config/cyclonedds.xml); discovery can hiccup when the machine is heavily loaded. Only ROS 2 Lyrical on Linux/WSL2 was tested. The GPU is shared with other work on the same machine.
+- **Incident memory persists.** `logs/incidents.jsonl` accumulates across investigations and is not cleared by `./scripts/reset_demo.sh` or `/api/demo/reset` (those reset the robot's process state, not the agent's own history). Delete the file to start a session with no memory.
 - **Small samples.** See [Results](#results).
 
 # Future work
