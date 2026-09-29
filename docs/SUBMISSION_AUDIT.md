@@ -55,10 +55,12 @@ the judges' questions on its own. This page lists the questions, where the answe
 - **Narrow repair primitives.** `restart_component` and one `set_parameter` fix (`base_controller.cmd_vel_topic` only, added 2026-09-29 alongside a fault-library/incident-memory/manifest-learning round of post-submission work; see [README → Fault scenarios](../README.md#fault-scenarios) for what was actually observed of the model's own choice between them).
 - **Git history.** The full development history is preserved, including earlier README versions, the removed unrelated process names in older commits' benchmark files, and the failed early benchmark runs. Nothing was rewritten.
 - **Repository visibility.** Public as of this update; see [GITHUB_SUBMISSION.md](GITHUB_SUBMISSION.md) for the description/topics/licence items still outstanding.
-- **Live-ROS test suite (`pytest -m ros`) has an unresolved flake**, found while validating the 2026-09-29 changes: it reliably times out in one
-  fixture under `pytest` specifically, even on an unmodified checkout with a genuinely healthy robot (the same operations succeed in ~2 s as a plain
-  script). Not caused by this session's changes; not yet root-caused. See [STATUS.md](STATUS.md). The 168 fast tests and a direct exercise of every
-  tool against the live robot were used instead.
+- **Live-ROS test suite (`pytest -m ros`) has an unresolved issue**, found while validating the 2026-09-29 changes: the ROS graph is completely
+  invisible to any pytest test process in this environment for the whole poll budget, even a minimal repro with zero RobotOps code (bare
+  `rclpy.init()` + `get_node_names()`), while the identical calls in a plain script see the graph within ~2 s. Ruled out: the ROS ament/launch_testing
+  pytest plugins, pytest-asyncio, and every environment/cwd difference. Not caused by this session's changes, not a bug in `backend/` or in any
+  test - not yet root-caused beyond that. See [STATUS.md](STATUS.md). The 168 fast tests, direct exercises of every tool (including all four
+  2026-09-29 features) against the live robot, and a full `verify_demo.sh --full` pass (24/24, real backend, real model) were used instead.
 
 ## 5. Final judge test (README only)
 
