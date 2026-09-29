@@ -7,11 +7,11 @@ the judges' questions on its own. This page lists the questions, where the answe
 
 | Question | Answer | Where |
 |---|---|---|
-| What problem does it solve? | Diagnosing a failing ROS 2 robot is a manual, sequential investigation across nodes, topics, TF, diagnostics, logs and controllers. | README → [Problem statement](../README.md#problem-statement), [Solution](../README.md#solution) |
-| What does it do? | Investigates a failure in a live ROS 2 system, gathers evidence, names a likely root cause, proposes a guarded repair, and independently verifies recovery. | README top; [What RobotOps does](../README.md#what-robotops-does) |
-| Where is AI essential? | A local LLM (`qwen3:4b`) chooses the next diagnostic tool, decides what to inspect next, forms the hypothesis and writes the diagnosis. There is no fault-to-tool table: tool sequences differ by evidence. | [Why AI?](../README.md#why-ai) |
+| What problem does it solve? | Diagnosing a failing ROS 2 robot is a manual, sequential investigation across nodes, topics, TF, diagnostics, logs and controllers. | README → [Overview](../README.md#overview) ([Problem statement](../README.md#problem-statement), [Solution](../README.md#solution)) |
+| What does it do? | Investigates a failure in a live ROS 2 system, gathers evidence, names a likely root cause, proposes a guarded repair, and independently verifies recovery. | README top; [Overview](../README.md#overview) |
+| Where is AI essential? | A local LLM (`qwen3:4b`) chooses the next diagnostic tool, decides what to inspect next, forms the hypothesis and writes the diagnosis. There is no fault-to-tool table: tool sequences differ by evidence. | [Evidence-grounded agent design](../README.md#evidence-grounded-agent-design) |
 | Does it touch a real ROS 2 system? | Yes: `rclpy` tools against a running 6-node demo robot with real DDS traffic; faults are real process failures injected by a supervisor. | [Architecture](../README.md#architecture), `backend/ros_tools/`, `demo_robot/` |
-| What prevents hallucinated diagnoses? | The LLM cites evidence IDs; code checks that the IDs exist, come from ≥ 2 different tool calls, include an anomaly about the named component, and that the action is allowlisted. Otherwise: inconclusive, no repair. | [Evidence-grounded diagnosis](../README.md#evidence-grounded-diagnosis), `backend/agent/diagnosis.py` |
+| What prevents hallucinated diagnoses? | The LLM cites evidence IDs; code checks that the IDs exist, come from ≥ 2 different tool calls, include an anomaly about the named component, and that the action is allowlisted. Otherwise: inconclusive, no repair. | [Real investigation example](../README.md#real-investigation-example), `backend/agent/diagnosis.py` |
 | Is the repair autonomous? | The investigation and diagnosis are autonomous; the *state change* is deliberately gated by a human approval (single-use, bound to action + target). | [Safety model](../README.md#safety-model) |
 | What are the safety mechanisms? | Read-only tools by default, evidence gate, approval gate, one-primitive allowlist, no shell, audit log, step/turn/timeout caps, independent 24-check verification. | [Safety model](../README.md#safety-model), `backend/safety/`, `tests/test_safety.py` |
 | Does it work? | A real, uncut recording; hero 10/10 consecutive runs; random hidden fault 15/15 on the five-fault set; 24/24 verification each. | README top, [Results](../README.md#results) |
@@ -58,7 +58,7 @@ the judges' questions on its own. This page lists the questions, where the answe
 
 ## 5. Final judge test (README only)
 
-Reading only `README.md` from a fresh clone, a judge can: understand the product from the first screen; see where AI is used and where it is not ([Why AI?](../README.md#why-ai));
+Reading only `README.md` from a fresh clone, a judge can: understand the product from the first screen; see where AI is used and where it is not ([Evidence-grounded agent design](../README.md#evidence-grounded-agent-design));
 see why it is safe (diagram + [Safety model](../README.md#safety-model)); find the evidence that it works ([Results](../README.md#results), raw files linked); reproduce the hero demo
 ([Reproduce the demo](../README.md#reproduce-the-demo)); find the benchmark methodology (the *Methodology* paragraph and [`benchmarks/`](../benchmarks)); and find the limitations ([Limitations](../README.md#limitations)).
 The clean-clone run performed during this audit is recorded in [GITHUB_SUBMISSION.md](GITHUB_SUBMISSION.md#clean-clone-check).
