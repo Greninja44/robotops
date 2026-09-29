@@ -225,7 +225,7 @@ Everything below was measured on the demo robot in this repository, on one lapto
 | Hero diagnosis time (query → accepted diagnosis) | **10.6 s median** (7.5–11.3 s) | hero acceptance file |
 | Hero query → recovery verified | 16.4 s median (max 17.1 s); approval → verified 5.4 s median | hero acceptance file |
 | Clean-state benchmark, generic query *"Diagnose the robot."*, 5 faults × 3 | 15/15 correct, repaired, verified; diagnosis median 4.7 s, p95 9.1 s (n = 15) | [`benchmarks/results_20260920_052452.md`](benchmarks/results_20260920_052452.md) |
-| Automated tests | 150 fast tests (131 behaviour, 19 documentation checks) + 19 live-ROS tests, all passing | `pytest tests` |
+| Automated tests | 159 fast tests (140 behaviour, 19 documentation checks) + 19 live-ROS tests, all passing | `pytest tests` |
 
 <details>
 <summary>Per-fault detail of the 15-run benchmark (3 runs per fault, generic query, real model choices)</summary>
@@ -295,12 +295,13 @@ The same sequence, scripted: `.venv/bin/python scripts/ui_hero_demo.py --runs 1`
 The fast suite and the dashboard build also run in CI on every push and pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)); the live-ROS tests and benchmarks need ROS 2 and Ollama, so they run locally.
 
 ```bash
-.venv/bin/python -m pytest tests -m "not ros"       # 150 fast tests (~10 s): validator, state machine, safety policy, approvals, no-fault-leak, timeouts, API, docs links
+.venv/bin/python -m pytest tests -m "not ros"       # 159 fast tests (~10 s): validator, state machine, safety policy, approvals, no-fault-leak, timeouts, API, docs links
 ./scripts/start_demo.sh
 .venv/bin/python -m pytest tests -m ros             # 19 live tests against the running ROS 2 demo robot (~4 min)
 ./scripts/verify_demo.sh --full                     # end-to-end: services, ROS health, tools, fault injection, full diagnose → repair → verify loop
 .venv/bin/python benchmarks/run_benchmark.py --repeat 3      # the benchmark (writes a new timestamped file in benchmarks/)
 .venv/bin/python scripts/ui_random_demo.py --runs 15         # random-fault batch through the real dashboard
+.venv/bin/python scripts/learn_manifest.py                   # re-derive demo_robot/manifest.json from the live robot; prints a diff, --apply to write
 (cd frontend && npx tsc -b && npm run lint && npm run build)
 ```
 
@@ -321,7 +322,7 @@ frontend/       React dashboard (src/components, src/lib)
 demo_robot/     6 rclpy nodes, process supervisor with fault injection, manifest.json (healthy reference)
 benchmarks/     runner + measured results (hero/, random/, profiles/) - never hand-written
 tests/          fast unit/API tests and live-ROS tests (pytest marker: ros)
-scripts/        setup, start/stop/verify, UI harnesses (screenshots, recordings, reliability runs), profiling
+scripts/        setup, start/stop/verify, UI harnesses (screenshots, recordings, reliability runs), profiling, manifest learning
 config/         Cyclone DDS settings for WSL2
 docs/           SETUP, DESIGN, PERFORMANCE, RECORDING, SUBMISSION_AUDIT, GITHUB_SUBMISSION, screenshots/, media/, examples/
 run_demo.sh, demo_preflight.sh
@@ -329,7 +330,7 @@ run_demo.sh, demo_preflight.sh
 
 # Limitations
 
-- **Demo topology.** The robot is a lightweight rclpy simulation of failure modes (6 nodes, real DDS), not hardware, Gazebo or Nav2. The tool layer is generic (graph, topic, TF, parameter, diagnostics, log inspection), but the healthy-reference manifest (`demo_robot/manifest.json`) and the graph layout of the dashboard are written for this robot.
+- **Demo topology.** The robot is a lightweight rclpy simulation of failure modes (6 nodes, real DDS), not hardware, Gazebo or Nav2. The tool layer is generic (graph, topic, TF, parameter, diagnostics, log inspection); the graph layout of the dashboard is written for this robot. The healthy-reference manifest (`demo_robot/manifest.json`) can be derived from a live observation (`scripts/learn_manifest.py`) rather than written by hand — used for real on this repo's robot, it found a real gap (a declared parameter the hand-written version had missed) — but which node broadcasts which TF edge still needs a human when more than one node publishes to `/tf` (tf2 does not expose that reliably), and prose fields (`role`, `description`) are never invented.
 - **Narrow repair primitives.** `restart_component` (six components) and one `set_parameter` fix (`base_controller.cmd_vel_topic` only). Together they fit these five faults; neither fixes a hardware fault, and the model does not reliably prefer `set_parameter` over a restart even when it applies (see [Fault scenarios](#fault-scenarios)).
 - **Small model.** `qwen3:4b` can misread evidence (it once read "40 messages in 4.0 s" as 4 Hz). The validator rejected that diagnosis, so no wrong repair ran, but a run can then end *inconclusive*. It also has habits (it opens with `get_recent_diagnostics` in most runs), and several process rules (own checks before concluding, no repeated tools) are enforced in code because the model otherwise loops.
 - **Bounded fault set.** The measurements cover the five injected failure modes only. Behaviour on unfamiliar failures is untested; the design intent is *inconclusive, no repair*, not a guess.
@@ -338,7 +339,7 @@ run_demo.sh, demo_preflight.sh
 
 # Future work
 
-Nav2 / `ros2_control` controller integration · hardware robots · a larger fault library (lifecycle nodes, sensor drift) · fleet monitoring · incident memory (learning from past incidents) · more guarded repair primitives (more allowlisted parameters) · learning the healthy manifest from a baseline recording.
+Nav2 / `ros2_control` controller integration · hardware robots · a larger fault library (lifecycle nodes, sensor drift) · fleet monitoring · incident memory (learning from past incidents) · more guarded repair primitives (more allowlisted parameters) · automatic TF-broadcaster attribution for the manifest learner when more than one node publishes to `/tf`.
 
 # License
 
