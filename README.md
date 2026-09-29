@@ -20,7 +20,7 @@ RobotOps investigates failures in a live ROS 2 system, gathers real evidence, pr
 
 <sub>One uncut run (31 s), not a mock-up — [full-quality MP4](docs/media/hero-demo.mp4) · [how it was recorded](docs/RECORDING.md)</sub>
 
-<sub>Team **Bluey** — Adarsh D — built for **CypherAI**</sub>
+
 
 [Overview](#overview) · [Architecture](#architecture) · [Evidence-grounded agent design](#evidence-grounded-agent-design) · [Safety](#safety-model) · [Results](#results) · [Quick start](#quick-start) · [Limitations](#limitations)
 
