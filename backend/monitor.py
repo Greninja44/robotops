@@ -14,7 +14,7 @@ import time
 from collections import deque
 
 from backend.ros_tools.client import RosClient
-from backend.ros_tools.common import manifest
+from backend.ros_tools.common import is_lifecycle_infra_topic, manifest
 
 HEALTHY, DEGRADED, FAILED, UNKNOWN = "HEALTHY", "DEGRADED", "FAILED", "UNKNOWN"
 GRAPH_TOPICS_HIDDEN = {"/rosout", "/parameter_events", "/diagnostics", "/tf", "/tf_static"}  # TF is drawn as its own nodes
@@ -75,7 +75,7 @@ class Monitor:
             nodes = set(self.client.node_names())
         except Exception as e:  # noqa: BLE001
             comps = {k: {"state": UNKNOWN, "detail": "ROS unavailable"} for k in
-                     ("controller", "lidar", "odometry", "tf", "navigation", "ros_graph")}
+                     ("controller", "lidar", "odometry", "tf", "navigation", "safety", "ros_graph")}
             return {"overall": UNKNOWN, "components": comps, "ros_available": False, "error": str(e)}
 
         m = manifest()
@@ -129,6 +129,16 @@ class Monitor:
         else:
             c["navigation"] = st(HEALTHY, f"obstacle detection {obst:.0f} Hz")
 
+        # Presence + rate only, like the checks above - a lifecycle service call has no place in a health
+        # poll that runs every cycle; the agent's inspect_lifecycle_state tool does the precise check.
+        safety = self.rate("/safety_status")
+        if "/safety_monitor" not in nodes:
+            c["safety"] = st(FAILED, "safety_monitor not running")
+        elif safety < m["topics"]["/safety_status"]["min_rate_hz"]:
+            c["safety"] = st(DEGRADED, "safety_monitor not active (no /safety_status)")
+        else:
+            c["safety"] = st(HEALTHY, f"safety gate active, {safety:.0f} Hz")
+
         missing = [n for n in m["nodes"] if n not in nodes]
         orphan = self._orphan_topics()
         if missing:
@@ -154,7 +164,7 @@ class Monitor:
         known = set(manifest()["topics"]) | GRAPH_TOPICS_HIDDEN | {"/tf"}
         out = []
         for t in self.client.topics():
-            if t in known:
+            if t in known or is_lifecycle_infra_topic(t):
                 continue
             pubs, subs = self.client.endpoints(t)
             if pubs or subs:
@@ -177,7 +187,7 @@ class Monitor:
         topic_list, edges = [], []
         seen_edges = set()
         for t in sorted(set(topics) | set(m["topics"])):
-            if t in GRAPH_TOPICS_HIDDEN:
+            if t in GRAPH_TOPICS_HIDDEN or is_lifecycle_infra_topic(t):
                 continue
             pubs, subs = self.client.endpoints(t) if t in topics else ([], [])
             if t not in m["topics"] and not pubs and not subs:

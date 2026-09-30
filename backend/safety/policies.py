@@ -25,6 +25,7 @@ REPAIRABLE = {
     "obstacle_monitor":   {"risk": "medium", "note": "obstacle detection offline during restart"},
     "wheel_odometry":     {"risk": "medium", "note": "odometry pose resets to origin"},
     "velocity_commander": {"risk": "medium", "note": "motion commands resume immediately"},
+    "safety_monitor":     {"risk": "low",    "note": "restart re-runs the normal configure->activate bring-up"},
 }
 
 EXPECTED_RESULT = {
@@ -34,6 +35,7 @@ EXPECTED_RESULT = {
     "obstacle_monitor": "obstacle_monitor running, /obstacle_distance publishing",
     "wheel_odometry": "/odom publishing and changing, odom->base_link transform fresh",
     "velocity_commander": "/cmd_vel publishing at >= 5 Hz",
+    "safety_monitor": "safety_monitor lifecycle state active, /safety_status publishing",
 }
 
 # set_parameter allowlist: component -> the ONE parameter it may be set to and its canonical value.

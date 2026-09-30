@@ -4,7 +4,7 @@ from __future__ import annotations
 import time
 
 from . import supervisor
-from .common import manifest, node_of, ros_name, suggest, tool
+from .common import is_lifecycle_infra_topic, manifest, node_of, ros_name, suggest, tool
 
 
 @tool("list_nodes")
@@ -37,8 +37,8 @@ def inspect_node(client, r, node: str):
         return
     iface = client.node_interfaces(node)
     hide = {"/rosout", "/parameter_events"}
-    pubs = {t: ty for t, ty in iface["publishers"].items() if t not in hide}
-    subs = {t: ty for t, ty in iface["subscribers"].items() if t not in hide}
+    pubs = {t: ty for t, ty in iface["publishers"].items() if t not in hide and not is_lifecycle_infra_topic(t)}
+    subs = {t: ty for t, ty in iface["subscribers"].items() if t not in hide and not is_lifecycle_infra_topic(t)}
     r.data.update(exists=True, publishes=pubs, subscribes=subs,
                   service_count=len(iface["services"]), role=(expected_meta or {}).get("role"))
     r.normal(f"Node {node} is running; publishes {sorted(pubs)}; subscribes {sorted(subs)}", node)
@@ -76,6 +76,30 @@ def inspect_parameters(client, r, node: str):
     r.normal(f"{node} parameters: " + ", ".join(f"{k}={v!r}" for k, v in params.items()), node)
     if expected and not mismatched:
         r.normal(f"{node} parameters match the robot manifest", node)
+
+
+@tool("inspect_lifecycle_state")
+def inspect_lifecycle_state(client, r, node: str):
+    """For a managed (lifecycle) node: its current state (e.g. active, inactive, unconfigured) via the standard
+    lifecycle_msgs /get_state service. A node can be alive and even publish diagnostics while stuck in the
+    wrong lifecycle state - presence and diagnostics text alone do not tell you which state it is actually in."""
+    node = ros_name(node, "node")
+    r.args["node"] = node
+    if node not in client.node_names():
+        r.data.update(exists=False)
+        r.anomaly(f"Cannot read lifecycle state: node {node} is not running", node)
+        return
+    state = client.get_lifecycle_state(node)
+    expected = manifest().get("lifecycle", {}).get(node)
+    if state is None:
+        r.data.update(exists=True, lifecycle_managed=False)
+        r.normal(f"{node} has no lifecycle interface (not a managed node)", node)
+        return
+    r.data.update(exists=True, lifecycle_managed=True, state=state, expected_state=expected)
+    if expected and state != expected:
+        r.anomaly(f"{node} lifecycle state is {state!r}, expected {expected!r}", node)
+    else:
+        r.normal(f"{node} lifecycle state: {state}" + (f" (expected: {expected})" if expected else ""), node)
 
 
 @tool("get_component_status")

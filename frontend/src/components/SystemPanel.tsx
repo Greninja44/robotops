@@ -3,12 +3,14 @@ import { api, type Graph, type Health, type Readiness } from '../api'
 import { startBlockers } from '../lib/uiState'
 
 const COMPONENTS: [string, string][] = [
-  ['controller', 'Controller'], ['lidar', 'LiDAR'], ['odometry', 'Odometry'], ['tf', 'TF'], ['navigation', 'Obstacle detection'], ['ros_graph', 'ROS graph'],
+  ['controller', 'Controller'], ['lidar', 'LiDAR'], ['odometry', 'Odometry'], ['tf', 'TF'], ['navigation', 'Obstacle detection'],
+  ['safety', 'Safety monitor'], ['ros_graph', 'ROS graph'],
 ]
 const FAULTS: [string, string][] = [
   ['controller_crash', 'Controller crash'], ['lidar_failure', 'LiDAR failure'], ['tf_failure', 'TF failure'],
   ['topic_misconfig', 'Topic mismatch'], ['node_crash', 'Node crash'],
   ['commander_stall', 'Commander stall'], ['odometry_stall', 'Odometry stall'], ['sensor_drift', 'Sensor drift'],
+  ['lifecycle_stall', 'Lifecycle stall'],
 ]
 
 export function SystemPanel({ health, graph, readiness, preparing, running, locked, connected }: {

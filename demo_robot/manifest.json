@@ -1,6 +1,6 @@
 {
   "robot": "robotops_demo_bot",
-  "description": "Differential-drive demo robot. velocity_commander drives base_controller via /cmd_vel; base_controller drives wheels (/wheel_states); wheel_odometry integrates /odom and TF odom->base_link; lidar_driver publishes /scan in frame laser; tf_broadcaster publishes base_link->laser; obstacle_monitor fuses /scan + TF into /obstacle_distance.",
+  "description": "Differential-drive demo robot. velocity_commander drives base_controller via /cmd_vel; base_controller drives wheels (/wheel_states); wheel_odometry integrates /odom and TF odom->base_link; lidar_driver publishes /scan in frame laser; tf_broadcaster publishes base_link->laser; obstacle_monitor fuses /scan + TF into /obstacle_distance; safety_monitor (lifecycle-managed) gates on /obstacle_distance and, once active, publishes /safety_status.",
   "nodes": {
     "/base_controller": {
       "component": "base_controller",
@@ -13,6 +13,10 @@
     "/obstacle_monitor": {
       "component": "obstacle_monitor",
       "role": "navigation obstacle detection"
+    },
+    "/safety_monitor": {
+      "component": "safety_monitor",
+      "role": "lifecycle-managed safety gate (the pattern nav2_collision_monitor uses)"
     },
     "/tf_broadcaster": {
       "component": "tf_broadcaster",
@@ -43,8 +47,18 @@
       "publishers": [
         "/obstacle_monitor"
       ],
-      "subscribers": [],
+      "subscribers": [
+        "/safety_monitor"
+      ],
       "min_rate_hz": 2.0
+    },
+    "/safety_status": {
+      "type": "std_msgs/msg/Bool",
+      "publishers": [
+        "/safety_monitor"
+      ],
+      "subscribers": [],
+      "min_rate_hz": 2.5
     },
     "/odom": {
       "type": "nav_msgs/msg/Odometry",
@@ -94,5 +108,8 @@
       "cmd_vel_topic": "/cmd_vel",
       "max_wheel_speed": 12.0
     }
+  },
+  "lifecycle": {
+    "/safety_monitor": "active"
   }
 }

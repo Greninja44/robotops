@@ -31,7 +31,7 @@ GROUND_TRUTH = STATE_DIR / "ground_truth.json"
 PORT = int(os.environ.get("ROBOTOPS_SUPERVISOR_PORT", "8766"))
 
 COMPONENTS = ["velocity_commander", "base_controller", "wheel_odometry",
-              "lidar_driver", "tf_broadcaster", "obstacle_monitor"]
+              "lidar_driver", "tf_broadcaster", "obstacle_monitor", "safety_monitor"]
 
 # fault id -> (description, how)
 FAULTS = {
@@ -43,6 +43,7 @@ FAULTS = {
     "commander_stall": "velocity commander hangs (process alive, no /cmd_vel; the node the robot never checks first)",
     "odometry_stall": "wheel odometry hangs (process alive, no /odom, odom->base_link transform goes stale)",
     "sensor_drift": "lidar saturates at range_min on every beam (process alive, normal rate, content is wrong)",
+    "lifecycle_stall": "safety monitor's activation watchdog fails - deactivates and refuses to reactivate (process alive)",
 }
 
 
@@ -142,6 +143,8 @@ class Supervisor:
                 self._signal("wheel_odometry")
             elif fault == "sensor_drift":
                 self._signal("lidar_driver", signal.SIGUSR2)
+            elif fault == "lifecycle_stall":
+                self._signal("safety_monitor")
             elif fault == "topic_misconfig":
                 self._stop("base_controller")
                 self._spawn("base_controller", ["-p", "cmd_vel_topic:=/cmd_vel_nav"])
