@@ -29,7 +29,7 @@ def test_tools_endpoint_lists_read_only_and_gated_actions(api):
 def test_faults_endpoint(api):
     assert set(api.get("/api/faults").json()["faults"]) == {"controller_crash", "lidar_failure", "tf_failure",
                                                             "topic_misconfig", "node_crash", "commander_stall",
-                                                            "odometry_stall", "sensor_drift", "random"}
+                                                            "odometry_stall", "sensor_drift", "lifecycle_stall", "random"}
 
 
 def test_inject_validates_fault_name(api):
@@ -127,7 +127,7 @@ def test_health_and_graph_on_live_robot():
         import time
         time.sleep(4)
         h = c.get("/api/health").json()
-        assert h["ros_available"] and set(h["components"]) == {"controller", "lidar", "odometry", "tf", "navigation", "ros_graph"}
+        assert h["ros_available"] and set(h["components"]) == {"controller", "lidar", "odometry", "tf", "navigation", "safety", "ros_graph"}
         g = c.get("/api/graph").json()
         assert {n["id"] for n in g["nodes"]} >= {"/base_controller", "/lidar_driver"}
         assert any(e["source"] == "/velocity_commander" and e["target"] == "/cmd_vel" for e in g["edges"])

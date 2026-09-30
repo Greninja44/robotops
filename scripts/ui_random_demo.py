@@ -25,7 +25,8 @@ AUDIT = ROOT / "logs" / "audit.jsonl"
 QUERY = "Diagnose the robot."
 EXPECTED = {"controller_crash": "base_controller", "lidar_failure": "lidar_driver", "tf_failure": "tf_broadcaster",
             "topic_misconfig": "base_controller", "node_crash": "obstacle_monitor",
-            "commander_stall": "velocity_commander", "odometry_stall": "wheel_odometry", "sensor_drift": "lidar_driver"}
+            "commander_stall": "velocity_commander", "odometry_stall": "wheel_odometry", "sensor_drift": "lidar_driver",
+            "lifecycle_stall": "safety_monitor"}
 TERMINAL = {"resolved", "repair_failed", "rejected", "inconclusive", "healthy", "diagnosed", "error"}
 
 

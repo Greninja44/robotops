@@ -277,6 +277,20 @@ class RosClient:
         finally:
             self.node.destroy_client(sc)
 
+    def get_lifecycle_state(self, full_name: str, timeout: float = 1.5) -> str | None:
+        """The current state (e.g. "active", "inactive") of a managed (lifecycle) node via its standard
+        /get_state service. Returns None if the node has no such service - it is a plain node, not a
+        lifecycle-managed one; that is a normal answer, not a failure."""
+        self.require()
+        from lifecycle_msgs.srv import GetState
+        gc = self.node.create_client(GetState, f"{full_name}/get_state")
+        try:
+            if not gc.wait_for_service(timeout_sec=timeout):
+                return None
+            return self._call(gc, GetState.Request(), timeout).current_state.label
+        finally:
+            self.node.destroy_client(gc)
+
     def _call(self, client, req, timeout):
         fut = client.call_async(req)
         end = time.monotonic() + timeout

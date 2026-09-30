@@ -16,13 +16,14 @@ import time
 
 import rclpy
 from rclpy.node import Node
+from rclpy.lifecycle import Node as RclpyLifecycleNode, TransitionCallbackReturn
 from rclpy.parameter import Parameter
 from rcl_interfaces.msg import SetParametersResult
 from diagnostic_msgs.msg import DiagnosticArray, DiagnosticStatus, KeyValue
 from geometry_msgs.msg import Twist, TransformStamped
 from nav_msgs.msg import Odometry
 from sensor_msgs.msg import JointState, LaserScan
-from std_msgs.msg import Float32
+from std_msgs.msg import Bool, Float32
 from tf2_ros import TransformBroadcaster, Buffer, TransformListener
 
 OK, WARN, ERROR = DiagnosticStatus.OK, DiagnosticStatus.WARN, DiagnosticStatus.ERROR
@@ -342,6 +343,73 @@ class ObstacleMonitor(DemoNode):
                    "obstacle_monitor terminating.", 134)
 
 
+class SafetyMonitor(RclpyLifecycleNode):
+    """A managed (lifecycle) node, the same ROS 2 pattern Nav2's own safety-critical nodes (e.g.
+    nav2_collision_monitor) use: only does its real work while ACTIVE. Gates on /obstacle_distance and, once
+    active, publishes /safety_status. This is NOT Nav2 itself - just genuine use of the managed-node lifecycle
+    Nav2 and ros2_control are both built on, with the standard lifecycle_msgs services it comes with.
+
+    Not a DemoNode subclass (LifecycleNode is a different base class); on_fault/on_drift/fault_requested/
+    drift_requested are duck-typed to match main()'s generic loop below.
+    """
+
+    def __init__(self):
+        super().__init__("safety_monitor")
+        self.fault_requested = False
+        self.drift_requested = False
+        self._stall = False
+        self._state_label = "unconfigured"
+        self._sub = None
+        self._pub = None
+        self._last_obstacle = None
+        self._diag_pub = self.create_publisher(DiagnosticArray, "/diagnostics", 10)
+        self.create_timer(1.0, self._publish_diagnostics)   # diagnostics run regardless of lifecycle state
+
+    def on_configure(self, state):
+        self._sub = self.create_subscription(Float32, "/obstacle_distance", self._on_obstacle, 10)
+        self._state_label = "inactive"
+        return TransitionCallbackReturn.SUCCESS
+
+    def on_activate(self, state):
+        if self._stall:
+            self.get_logger().error("safety_monitor: activation refused (fault injected, still inactive)")
+            return TransitionCallbackReturn.FAILURE
+        self._pub = self.create_lifecycle_publisher(Bool, "/safety_status", 10)
+        self._state_label = "active"
+        return super().on_activate(state)
+
+    def on_deactivate(self, state):
+        self._state_label = "inactive"
+        return super().on_deactivate(state)
+
+    def on_cleanup(self, state):
+        if self._sub is not None:
+            self.destroy_subscription(self._sub)
+            self._sub = None
+        self._state_label = "unconfigured"
+        return TransitionCallbackReturn.SUCCESS
+
+    def _on_obstacle(self, msg):
+        self._last_obstacle = msg.data
+        if self._pub is not None and self._pub.is_activated:
+            self._pub.publish(Bool(data=self._last_obstacle > 0.3))
+
+    def _publish_diagnostics(self):
+        level = OK if self._state_label == "active" else (ERROR if self._stall else WARN)
+        message = (f"safety_monitor state: {self._state_label} (expected: active)" if self._state_label != "active"
+                  else "Gating motion on /obstacle_distance")
+        status = DiagnosticStatus(level=level, name=self.get_name(), message=message, hardware_id="demo_robot",
+                                  values=[KeyValue(key="lifecycle_state", value=self._state_label)])
+        arr = DiagnosticArray(status=[status])
+        arr.header.stamp = self.get_clock().now().to_msg()
+        self._diag_pub.publish(arr)
+
+    def on_fault(self):
+        self.get_logger().error("safety_monitor: activation watchdog failed - deactivating and refusing to reactivate")
+        self.trigger_deactivate()
+        self._stall = True
+
+
 COMPONENTS = {
     "velocity_commander": VelocityCommander,
     "base_controller": BaseController,
@@ -349,6 +417,7 @@ COMPONENTS = {
     "lidar_driver": LidarDriver,
     "tf_broadcaster": TfBroadcaster,
     "obstacle_monitor": ObstacleMonitor,
+    "safety_monitor": SafetyMonitor,
 }
 
 
@@ -357,6 +426,11 @@ def main():
         sys.exit(f"usage: nodes.py <{'|'.join(COMPONENTS)}> [--ros-args ...]")
     rclpy.init(args=sys.argv)
     node = COMPONENTS[sys.argv[1]]()
+    if isinstance(node, RclpyLifecycleNode):
+        # Self bring-up: the same configure-then-activate sequence a lifecycle_manager (Nav2's own included)
+        # would issue externally, done in-process so the node is ready as soon as it appears in the graph.
+        node.trigger_configure()
+        node.trigger_activate()
     signal.signal(signal.SIGUSR1, lambda *_: setattr(node, "fault_requested", True))
     signal.signal(signal.SIGUSR2, lambda *_: setattr(node, "drift_requested", True))
     try:

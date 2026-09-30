@@ -1,4 +1,4 @@
-# Status (updated 2026-09-29: second repair primitive)
+# Status (updated 2026-09-30: lifecycle-managed node)
 
 ## UPDATE 2026-09-29 (post-submission, feature freeze lifted)
 - **Second guarded repair primitive**: `set_parameter` (`base_controller.cmd_vel_topic -> /cmd_vel` only, `policies.PARAMETER_FIX`) alongside
@@ -65,6 +65,34 @@
   budget by ~100-250 chars depending on incident-memory state; trimmed the description once, then raised the test's budget to 3700 with a comment
   explaining why (a deliberate, reviewed addition, not silent bloat) rather than just deleting the guard. 9 new unit tests against a fake client
   (no ROS needed) plus 1 new live-ROS test; tests 181 fast.
+
+## UPDATE 2026-09-30 (lifecycle-managed node - user asked to continue the two largest remaining Future-work items)
+- **A 7th component, genuinely lifecycle-managed**: `safety_monitor`, a real `rclpy.lifecycle.LifecycleNode` - the same managed-node pattern Nav2's
+  own safety-critical nodes (e.g. `nav2_collision_monitor`) use, with the standard `lifecycle_msgs` services that come with it. Not a claim of
+  running Nav2 itself. Self-brings-up (configure -> activate) right after construction, mirroring what an external `lifecycle_manager` would do.
+  Gates on `/obstacle_distance` and, once active, publishes `/safety_status`. New 9th fault, `lifecycle_stall`: the activation watchdog fails,
+  deactivating the node and refusing to reactivate - it stays in the graph and keeps publishing diagnostics (not "crashed"), but only the new
+  `inspect_lifecycle_state` tool (13th read-only tool, via the standard `/get_state` service) names the actual state; presence and diagnostics
+  text alone only say something is wrong, not precisely what. `restart_component safety_monitor` repairs it (fresh process re-runs the normal
+  bring-up). Prototyped the exact `rclpy.lifecycle` API (self bring-up, the fault-signal spin loop, deactivate-and-refuse-to-reactivate) standalone
+  against real ROS before touching any project code - every step confirmed via `ros2 lifecycle get`/`ros2 topic hz` before being wired in.
+- **A real bug found via `verify_demo.sh --full` on a genuinely healthy robot, not a synthetic test**: every `rclpy.lifecycle.Node` auto-publishes
+  its own `<node>/transition_event` (standard ROS 2 lifecycle infrastructure) - `monitor.py`'s health check and the agent's `list_topics`/
+  `inspect_node` tools both flagged it as an "unexpected topic" anomaly on a perfectly healthy robot, which would have corrupted the evidence
+  ledger with a false anomaly on every single investigation. Fixed with one shared suffix-matched helper (`is_lifecycle_infra_topic`, `ros_tools/
+  common.py`) used in all three places, rather than three separate exemption lists that could drift out of sync.
+  `/api/health` went from `DEGRADED` to `HEALTHY` on the same healthy robot after the fix.
+- Added a 7th dashboard health category (`safety`, presence+rate only - a lifecycle service call has no place in a poll that runs every cycle).
+  `demo_robot/manifest.json` gained a new top-level `"lifecycle"` section (`{"/safety_monitor": "active"}`, the expected-state comparison
+  `inspect_lifecycle_state` checks against) - `scripts/learn_manifest.py` does not yet learn this section automatically (a known, stated gap,
+  same pattern as the TF-broadcaster attribution gap before PR #16 - manually maintained for now).
+- **Honest gap this round**: Ollama became unreachable partway through (the Windows host's `ollama.exe` was not findable via `where.exe` either -
+  looks like an install/update in progress or a location change outside `scripts/start_ollama.sh`'s hardcoded search path, unrelated to this
+  session's changes). The feature is thoroughly verified directly against live ROS (bring-up, activation, the fault, deactivation, refused
+  reactivation, topic silence, recovery via restart, plus the transition_event bug found via `verify_demo.sh --full`'s non-LLM checks) and via
+  186 fast tests (14 new: 5 for `inspect_lifecycle_state`, 9 already counted for sensor_drift), but a real `qwen3:4b` investigation of
+  `lifecycle_stall` specifically was not run this round - worth doing once Ollama is reachable again. Tests 186 fast; fault count 9; read-only
+  tools 13; demo robot 7 rclpy nodes (one of them lifecycle-managed).
 
 
 ## WORKING (verified by running it)

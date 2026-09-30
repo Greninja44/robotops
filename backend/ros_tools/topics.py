@@ -1,7 +1,7 @@
 """Topic-level diagnostic tools (read-only)."""
 from __future__ import annotations
 
-from .common import clamp, manifest, ros_name, suggest, tool
+from .common import clamp, is_lifecycle_infra_topic, manifest, ros_name, suggest, tool
 
 IGNORED = {"/rosout", "/parameter_events"}
 
@@ -12,7 +12,7 @@ def list_topics(client, r):
     expected = manifest()["topics"]
     table = {}
     for name, types in sorted(topics.items()):
-        if name in IGNORED:
+        if name in IGNORED or is_lifecycle_infra_topic(name):
             continue
         pubs, subs = client.endpoints(name)
         if not pubs and not subs:
