@@ -373,12 +373,15 @@ def test_tool_results_are_sent_to_the_model_as_user_turns():
 def test_system_prompt_is_compact_and_contains_no_fault_information():
     from backend.agent import prompts
     text = prompts.system_prompt(10)
-    # 3700, not the original 3500: raised deliberately once, for check_sensor_data (a whole new tool, not
-    # bloat - see docs/PERFORMANCE.md for why this budget exists at all). Still a real regression guard:
-    # additions from here should stay terse enough not to need raising it again.
-    assert len(text) < 3700
+    # Started at 3500; raised deliberately twice since, for real growth (see docs/PERFORMANCE.md for why this
+    # budget exists at all - ~3,000 tokens of unconstrained model prose was the original 92s problem):
+    #   3700 - check_sensor_data, a whole new tool (2026-09-29)
+    #   3950 - safety_monitor, a whole new node + inspect_lifecycle_state, a whole new tool (2026-09-30)
+    # Still a real regression guard: an addition that blows this budget without a matching new capability
+    # behind it is bloat, not growth, and should be trimmed instead of raising the number again.
+    assert len(text) < 3950
     for word in ("controller_crash", "lidar_failure", "tf_failure", "topic_misconfig", "node_crash",
-                "commander_stall", "odometry_stall", "sensor_drift", "inject"):
+                "commander_stall", "odometry_stall", "sensor_drift", "lifecycle_stall", "inject"):
         assert word not in text
     assert "/cmd_vel" in text and "base_controller" in text        # architecture knowledge is there
 

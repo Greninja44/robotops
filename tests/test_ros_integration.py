@@ -65,7 +65,8 @@ def test_every_tool_returns_valid_structured_result(robot):
     calls = [("get_ros_health", {}), ("list_nodes", {}), ("list_topics", {}), ("inspect_node", {"node": "/base_controller"}),
              ("inspect_topic", {"topic": "/cmd_vel"}), ("measure_topic_rate", {"topic": "/odom", "duration": 1}),
              ("check_tf", {}), ("inspect_parameters", {"node": "/base_controller"}), ("get_recent_diagnostics", {}),
-             ("get_recent_logs", {}), ("get_component_status", {}), ("check_sensor_data", {"topic": "/scan"})]
+             ("get_recent_logs", {}), ("get_component_status", {}), ("check_sensor_data", {"topic": "/scan"}),
+             ("inspect_lifecycle_state", {"node": "/safety_monitor"})]
     for name, args in calls:
         res = run(robot, name, **args)
         assert isinstance(res, ToolResult) and res.tool == name and res.success, (name, res.error)
@@ -76,7 +77,7 @@ def test_every_tool_returns_valid_structured_result(robot):
 def test_healthy_baseline_has_no_anomalies_in_core_tools(robot):
     for name, args in [("list_nodes", {}), ("inspect_topic", {"topic": "/cmd_vel"}), ("check_tf", {}),
                        ("inspect_parameters", {"node": "/base_controller"}), ("get_recent_diagnostics", {}),
-                       ("check_sensor_data", {"topic": "/scan"})]:
+                       ("check_sensor_data", {"topic": "/scan"}), ("inspect_lifecycle_state", {"node": "/safety_monitor"})]:
         assert anomalies(run(robot, name, **args)) == [], name
 
 
@@ -192,11 +193,27 @@ def test_sensor_drift_produces_real_symptoms(robot):
                                   for t in anomalies(run(robot, "get_recent_diagnostics"))), 10)
 
 
+def test_lifecycle_stall_produces_real_symptoms(robot):
+    """safety_monitor deactivates and refuses to reactivate: it stays in the ROS graph and keeps publishing
+    diagnostics (so it isn't "crashed"), but only inspect_lifecycle_state names the actual state; presence
+    and diagnostics alone only say something is wrong, not precisely what."""
+    inject_and_wait(robot, "lifecycle_stall",
+                    lambda: run(robot, "inspect_lifecycle_state", node="/safety_monitor").data.get("state") == "inactive")
+    assert "/safety_monitor" in robot.node_names()                          # alive, not crashed
+    assert run(robot, "measure_topic_rate", topic="/safety_status", duration=1.5).data["rate_hz"] == 0
+    state = run(robot, "inspect_lifecycle_state", node="/safety_monitor")
+    assert state.data["state"] == "inactive" and state.data["expected_state"] == "active"
+    assert any("inactive" in t and "active" in t for t in anomalies(state))
+    assert wait_until(lambda: any("safety_monitor" in t and "inactive" in t
+                                  for t in anomalies(run(robot, "get_recent_diagnostics"))), 10)
+
+
 def test_random_fault_response_does_not_reveal_identity(robot):
     res = supervisor.inject("random")
     assert res["ok"] and res["injected"] == "random (hidden)"
     assert not any(f in str(res) for f in ("controller_crash", "lidar_failure", "tf_failure", "topic_misconfig",
-                                           "node_crash", "commander_stall", "odometry_stall", "sensor_drift"))
+                                           "node_crash", "commander_stall", "odometry_stall", "sensor_drift",
+                                           "lifecycle_stall"))
 
 
 def test_unknown_fault_rejected(robot):
