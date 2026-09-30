@@ -89,3 +89,20 @@ there is nothing for the model to cite even if it wanted to - a diagnosis still 
 current investigation's own ledger. The summary is capped to the N most recently seen components regardless of how large the log
 grows, for the same reason the manifest and tool schemas stay compact: an uncontrolled prompt is what made the first version of
 the agent take 92 s (`docs/PERFORMANCE.md`).
+
+**A real managed node, not a Nav2 imitation.** `safety_monitor` is a genuine `rclpy.lifecycle.LifecycleNode` - the same managed-node
+pattern and `lifecycle_msgs` services Nav2's own safety-critical nodes (e.g. `nav2_collision_monitor`) use, self-bringing-up
+(`trigger_configure()` then `trigger_activate()`) right after construction the way an external `lifecycle_manager` would. This is
+*not* a claim of running Nav2 - no map, costmap or planner exists here. `on_fault()` calls `trigger_deactivate()` and then refuses
+future activation (`on_activate` returns `FAILURE` while stalled), a realistic failure mode: a real lifecycle node's activation can
+fail (a plugin load error, a watchdog) and stay stuck inactive rather than crash. Prototyped standalone against real ROS
+(`ros2 lifecycle set`/`ros2 topic hz`) before any of it touched project code, including the fault path specifically - the first
+prototype run was only used to confirm the transitions and topic timing, not assumed from documentation.
+
+**A real bug the prototype didn't catch, `verify_demo.sh --full` did**: every `rclpy.lifecycle.Node` auto-publishes its own
+`<node>/transition_event` - standard ROS 2 lifecycle infrastructure, invisible in a hand-rolled prototype script but very visible
+once the real monitor and agent tools ran against it. `monitor.py`'s health check and the agent's `list_topics`/`inspect_node`
+tools all independently flagged it as an "unexpected topic" anomaly on a perfectly healthy robot - exactly the kind of false
+anomaly that would corrupt the evidence ledger on every single investigation, not just this one node's. Fixed with one shared
+helper (`ros_tools/common.py::is_lifecycle_infra_topic`, a suffix match so it covers any lifecycle node added later) used in all
+three places, rather than three separate exemption lists that could silently drift apart.
