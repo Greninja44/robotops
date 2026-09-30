@@ -52,6 +52,14 @@ def suggest(name: str, candidates: list[str]) -> list[str]:
     return difflib.get_close_matches(name, candidates, n=3, cutoff=0.5)
 
 
+def is_lifecycle_infra_topic(name: str) -> bool:
+    """Every rclpy.lifecycle node auto-publishes its own <node>/transition_event - standard ROS 2 lifecycle
+    infrastructure (not part of this robot's own data flow), so it is never treated as an "unexpected topic"
+    anomaly or as agent-relevant evidence. A suffix check, not a fixed topic name, so it covers any
+    lifecycle-managed node added later, not just safety_monitor specifically."""
+    return name.endswith("/transition_event")
+
+
 class Finding(BaseModel):
     """A deterministic observation derived by code from tool data (never by the LLM)."""
     text: str
