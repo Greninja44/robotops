@@ -72,9 +72,13 @@ Ports used (all `127.0.0.1`): 8000 backend + dashboard, 8766 demo supervisor, 11
   (a `LaserScan`, for example) never arrives between processes. `config/cyclonedds.xml` makes Cyclone fragment at the DDSI layer
   (`MaxMessageSize 1400B`, `FragmentSize 1200B`) and shortens the participant lease to 3 s so a crashed node leaves the graph quickly.
   On native Linux the file is harmless.
-* **Ollama on the Windows host.** If there is no `ollama` binary inside WSL, `scripts/start_ollama.sh` looks for
-  `ollama.exe` under `/mnt/c/Users/*/AppData/Local/Programs/Ollama/` and starts it through WSL interop; mirrored networking exposes it on
-  `localhost:11434`. If Ollama is already reachable it does nothing. Point `ROBOTOPS_OLLAMA_URL` at any other Ollama server.
+* **Ollama install location.** `scripts/start_ollama.sh` prefers a native `ollama` binary on `PATH` inside WSL/Linux (install with
+  `curl -fsSL https://ollama.com/install.sh | sh`, or extract the `ollama-linux-amd64` release tarball from
+  [github.com/ollama/ollama/releases](https://github.com/ollama/ollama/releases) into a user directory with no root needed - both work
+  the same way `./scripts/setup.sh` expects). Only if no native binary is found does it fall back to an `ollama.exe` under
+  `/mnt/c/Users/*/AppData/Local/Programs/Ollama/`, started through WSL interop (mirrored networking exposes it on `localhost:11434`); that
+  fallback depends on the Windows-side install's location, which has moved/broken across machine updates before, so a native install is
+  more reliable. If Ollama is already reachable it does nothing either way. Point `ROBOTOPS_OLLAMA_URL` at any other Ollama server.
 * **Model availability.** `./run_demo.sh` aborts with a clear message if Ollama or the model is missing; the backend itself still
   starts without the model and reports `LLM unavailable` instead of crashing.
 * **Shared GPU / busy machine.** A competing GPU or CPU job makes model calls slower. The preflight and the benchmark report competing load.

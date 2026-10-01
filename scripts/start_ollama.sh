@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Make sure an Ollama server answers on localhost:11434.
-# On this machine Ollama is installed on the Windows host; WSL mirrored networking exposes it on localhost.
+# Prefers a native Linux/WSL install (`command -v ollama`) if one is on PATH; falls back to a Windows-host
+# install reached through WSL mirrored networking only if no native binary is found. A native install avoids
+# depending on the Windows-side install's location, which has moved/broken across machine updates before.
 URL="${ROBOTOPS_OLLAMA_URL:-http://127.0.0.1:11434}"
 up() { curl -sf -m 2 "$URL/api/tags" >/dev/null; }
 if up; then echo "ollama already reachable"; exit 0; fi
