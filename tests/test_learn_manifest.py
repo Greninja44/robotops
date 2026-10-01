@@ -11,8 +11,9 @@ lm = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(lm)
 
 
-def learned(nodes=None, topics=None, tf_edges=None, parameters=None):
-    return {"nodes": nodes or {}, "topics": topics or {}, "tf_edges": tf_edges or [], "parameters": parameters or {}}
+def learned(nodes=None, topics=None, tf_edges=None, parameters=None, lifecycle=None):
+    return {"nodes": nodes or {}, "topics": topics or {}, "tf_edges": tf_edges or [], "parameters": parameters or {},
+           "lifecycle": lifecycle or {}}
 
 
 def test_from_scratch_leaves_todo_placeholders_and_computes_rate_from_margin():
@@ -182,3 +183,47 @@ def test_gives_up_after_max_passes_when_nothing_ever_freezes(monkeypatch):
     lm.resolve_tf_broadcasters_actively(object(), edges)
     assert edges[0]["candidates"] == ["/a", "/b"]
     assert sup.calls.count("a") == 3 and sup.calls.count("b") == 3       # tried every candidate, every pass
+
+
+# ---------------------------------------------------------------------------- lifecycle learning
+def test_a_freshly_observed_lifecycle_state_is_the_expectation_with_no_prior():
+    manifest, warnings = lm.build_manifest(learned(lifecycle={"/safety_monitor": "active"}), existing=None, margin=0.5)
+    assert manifest["lifecycle"] == {"/safety_monitor": "active"}
+    assert warnings == []
+
+
+def test_a_fresh_observation_overrides_a_stale_prior_unlike_a_rate_threshold():
+    """Unlike min_rate_hz (kept from --merge, only refreshed with a fresh discovery if no prior exists), there
+    is no reason to prefer a stale expected lifecycle state over what was just measured on a healthy robot -
+    both represent the same fact, so the fresh observation always wins."""
+    existing = {"lifecycle": {"/safety_monitor": "inactive"}}   # e.g. hand-edited wrong, or from an old manifest
+    manifest, _ = lm.build_manifest(learned(lifecycle={"/safety_monitor": "active"}), existing=existing, margin=0.5)
+    assert manifest["lifecycle"] == {"/safety_monitor": "active"}
+
+
+def test_a_node_that_lost_its_lifecycle_interface_is_dropped_and_flagged():
+    existing = {"lifecycle": {"/safety_monitor": "active"}}
+    manifest, warnings = lm.build_manifest(learned(lifecycle={}), existing=existing, margin=0.5)
+    assert manifest["lifecycle"] == {}
+    assert any("no longer has a lifecycle interface" in w for w in warnings)
+
+
+def test_plain_nodes_never_appear_in_the_lifecycle_section():
+    manifest, _ = lm.build_manifest(learned(nodes={"/base_controller": {"component": "base_controller"}}, lifecycle={}),
+                                    existing=None, margin=0.5)
+    assert manifest["lifecycle"] == {}
+
+
+def test_diff_summary_reports_a_changed_lifecycle_expectation():
+    old = {"lifecycle": {"/safety_monitor": "inactive"}}
+    new = {"lifecycle": {"/safety_monitor": "active"}}
+    lines = lm.diff_summary(old, new)
+    assert any("~ /safety_monitor.lifecycle" in l and "'inactive'" in l and "'active'" in l for l in lines)
+
+
+def test_diff_summary_reports_added_and_removed_lifecycle_nodes():
+    old = {"lifecycle": {}}
+    new = {"lifecycle": {"/safety_monitor": "active"}}
+    lines = lm.diff_summary(old, new)
+    assert any("+ lifecycle" in l and "/safety_monitor" in l for l in lines)
+    assert lm.diff_summary(new, old) and any("- lifecycle" in l for l in lm.diff_summary(new, old))
