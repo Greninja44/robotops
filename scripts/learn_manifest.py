@@ -3,8 +3,10 @@
 
 The manifest is RobotOps' healthy reference (what evidence.py and verification.py compare the live
 graph against). This script derives the parts that are genuinely measurable - nodes, topics, their
-types, publishers, subscribers, measured rates, TF edges, declared parameters - directly from the
-running robot. Two things it will NOT invent:
+types, publishers, subscribers, measured rates, TF edges, declared parameters, and the expected state
+of any lifecycle-managed node (`rclpy.lifecycle.LifecycleNode`: whatever state is observed while
+healthy - "active" for a properly configured one - IS the expectation) - directly from the running
+robot. Two things it will NOT invent:
 
   * human-readable prose ("role", the top-level "description"): these are semantic judgements, not
     observations, so they are only ever copied forward from an existing manifest (--merge) or left as
@@ -40,6 +42,7 @@ sys.path.insert(0, str(ROOT))
 
 from backend.ros_tools import supervisor  # noqa: E402
 from backend.ros_tools.client import get_client  # noqa: E402
+from backend.ros_tools.common import is_lifecycle_infra_topic  # noqa: E402
 
 # ROS-infrastructure topics that are not part of the robot's own data flow (not modeled as manifest
 # "topics" - /diagnostics is read by get_recent_diagnostics directly, TF is modeled separately).
@@ -57,7 +60,7 @@ def learn(client, duration: float) -> dict:
 
     topics = {}
     for name, types in sorted(topic_types.items()):
-        if name in SKIP_TOPICS or not types:
+        if name in SKIP_TOPICS or not types or is_lifecycle_infra_topic(name):
             continue
         pubs, subs = client.endpoints(name)
         pub_nodes, sub_nodes = [p["node"] for p in pubs], [s["node"] for s in subs]
@@ -85,7 +88,16 @@ def learn(client, duration: float) -> dict:
         if live:
             params[n] = live
 
-    return {"nodes": nodes, "topics": topics, "tf_edges": tf_edges, "parameters": params}
+    # Lifecycle-managed nodes (rclpy.lifecycle.LifecycleNode): the state observed on a HEALTHY robot is the
+    # correct "expected" value, the same way min_rate_hz is derived from a healthy measurement - a node with
+    # no lifecycle interface (the overwhelming majority) simply reports None and is skipped, same as get_parameters.
+    lifecycle = {}
+    for n in node_names:
+        state = client.get_lifecycle_state(n, timeout=1.5)
+        if state is not None:
+            lifecycle[n] = state
+
+    return {"nodes": nodes, "topics": topics, "tf_edges": tf_edges, "parameters": params, "lifecycle": lifecycle}
 
 
 def _tf_frames(client) -> dict:
@@ -198,17 +210,25 @@ def build_manifest(learned: dict, existing: dict | None, margin: float) -> tuple
         # else: a node not previously tracked - parameters are not included unless it was already tracked,
         # to avoid pulling in incidental parameters nobody has decided matter for fault detection.
 
+    # Lifecycle-managed nodes: the state observed while healthy IS the expectation (unlike a rate threshold
+    # or a TF broadcaster, there is no reason to prefer a stale prior value over what was just measured on a
+    # healthy robot - both represent the same fact, "this node should be in this state when healthy").
+    lifecycle = dict(learned["lifecycle"])
+    for n in sorted(set(existing.get("lifecycle", {})) - set(lifecycle)):
+        warnings.append(f"{n}: previously a lifecycle-managed node (expected {existing['lifecycle'][n]!r}), "
+                        f"no longer has a lifecycle interface - removed from the manifest")
+
     manifest = {
         "robot": existing.get("robot", "TODO: robot id"),
         "description": existing.get("description", "TODO: describe what this robot does"),
-        "nodes": nodes, "topics": topics, "tf": tf, "parameters": parameters,
+        "nodes": nodes, "topics": topics, "tf": tf, "parameters": parameters, "lifecycle": lifecycle,
     }
     return manifest, warnings
 
 
 def diff_summary(old: dict, new: dict) -> list[str]:
     lines = []
-    for key in ("nodes", "topics", "parameters"):
+    for key in ("nodes", "topics", "parameters", "lifecycle"):
         added = sorted(set(new.get(key, {})) - set(old.get(key, {})))
         removed = sorted(set(old.get(key, {})) - set(new.get(key, {})))
         if added:
@@ -225,6 +245,10 @@ def diff_summary(old: dict, new: dict) -> list[str]:
         prior = old.get("topics", {}).get(name)
         if prior and prior.get("min_rate_hz") != info.get("min_rate_hz"):
             lines.append(f"  ~ {name}.min_rate_hz: {prior.get('min_rate_hz')} -> {info.get('min_rate_hz')}")
+    for name, state in new.get("lifecycle", {}).items():
+        prior = old.get("lifecycle", {}).get(name)
+        if prior and prior != state:
+            lines.append(f"  ~ {name}.lifecycle: {prior!r} -> {state!r}")
     return lines
 
 
@@ -260,7 +284,8 @@ def main():
     manifest, warnings = build_manifest(learned, existing, args.margin)
 
     print(f"\nLearned {len(manifest['nodes'])} nodes, {len(manifest['topics'])} topics, "
-         f"{len(manifest['tf'])} TF edges, parameters for {len(manifest['parameters'])} node(s).")
+         f"{len(manifest['tf'])} TF edges, parameters for {len(manifest['parameters'])} node(s), "
+         f"{len(manifest['lifecycle'])} lifecycle-managed node(s).")
     if warnings:
         print("\nNeeds a human:")
         for w in warnings:

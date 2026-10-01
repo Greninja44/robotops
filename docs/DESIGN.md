@@ -13,14 +13,17 @@ anomalies, it never names a root cause or picks a repair.
 is the healthy reference (nodes, topics, rates, TF, parameters). It contains no fault information.
 
 **The manifest can be learned, but not entirely.** `scripts/learn_manifest.py` derives what is genuinely measurable (nodes, topics, publishers,
-subscribers, measured rates, TF edges, declared parameters) from a live, healthy robot instead of it being hand-written. Two things it
-deliberately does not guess: prose (`role`, `description` - semantic judgement, only ever copied forward from an existing manifest or left as a
-`TODO:` placeholder) and, when more than one node publishes to `/tf`, which one broadcasts a given edge (tf2's own `all_frames_as_yaml()`
+subscribers, measured rates, TF edges, declared parameters, lifecycle state) from a live, healthy robot instead of it being hand-written. Two
+things it deliberately does not guess: prose (`role`, `description` - semantic judgement, only ever copied forward from an existing manifest or
+left as a `TODO:` placeholder) and, when more than one node publishes to `/tf`, which one broadcasts a given edge (tf2's own `all_frames_as_yaml()`
 "broadcaster" field is unreliable in ROS 2 - it reports `default_authority`, not a node name; confirmed on this repo's robot). A wrong automatic
 guess there would be worse than an honest gap, so the tool reports every current publisher of `/tf`/`/tf_static` as a candidate, resolves
 automatically only when there is exactly one, and otherwise keeps a `--merge`-supplied prior value (if it is still among the candidates) or
 leaves `null` with a warning. Run for real against this repo's demo robot, it found a genuine gap the hand-written manifest had missed:
 `base_controller` declares `max_wheel_speed` but the manifest never listed it, so `inspect_parameters` could never have flagged a change to it.
+A lifecycle-managed node's expected state (the `"lifecycle"` section, added alongside `safety_monitor` below) uses the same reasoning as the
+measured rate thresholds: whatever state is observed while the robot is healthy *is* the expectation, no prior preferred over a fresh reading.
+Run against this repo's own robot, it reproduces the hand-written `"lifecycle"` section byte for byte.
 
 **Closing the TF-broadcaster gap without guessing: an opt-in active probe.** `--active` resolves an ambiguous edge by restarting one candidate
 node at a time (via the same allowlisted `restart_component` path the agent's own repair uses) and watching for its signature: two *consecutive*
