@@ -1,4 +1,4 @@
-# Status (updated 2026-09-30: lifecycle-managed node)
+# Status (updated 2026-09-30: lifecycle-managed node + manifest learning closes the lifecycle gap)
 
 ## UPDATE 2026-09-29 (post-submission, feature freeze lifted)
 - **Second guarded repair primitive**: `set_parameter` (`base_controller.cmd_vel_topic -> /cmd_vel` only, `policies.PARAMETER_FIX`) alongside
@@ -84,8 +84,12 @@
   `/api/health` went from `DEGRADED` to `HEALTHY` on the same healthy robot after the fix.
 - Added a 7th dashboard health category (`safety`, presence+rate only - a lifecycle service call has no place in a poll that runs every cycle).
   `demo_robot/manifest.json` gained a new top-level `"lifecycle"` section (`{"/safety_monitor": "active"}`, the expected-state comparison
-  `inspect_lifecycle_state` checks against) - `scripts/learn_manifest.py` does not yet learn this section automatically (a known, stated gap,
-  same pattern as the TF-broadcaster attribution gap before PR #16 - manually maintained for now).
+  `inspect_lifecycle_state` checks against). Same day, closed the gap this stated deliberately: `scripts/learn_manifest.py` now learns that
+  section too (whatever state a lifecycle node is observed in while healthy IS the expectation - the same reasoning `min_rate_hz` already used).
+  Applying it to this repo's own manifest reproduces the hand-written section byte for byte - the strongest form of "the tool is correct" check.
+  The pre-existing `is_lifecycle_infra_topic` exemption (PR #18's bug fix) had to be applied to `learn_manifest.py`'s own topic loop too, while
+  adding this - it has the exact same class of bug as `monitor.py`/`list_topics`/`inspect_node` had, just not yet exercised, since the learner had
+  never been run against a robot with a lifecycle node before this.
 - **Honest gap this round**: Ollama became unreachable partway through (the Windows host's `ollama.exe` was not findable via `where.exe` either -
   looks like an install/update in progress or a location change outside `scripts/start_ollama.sh`'s hardcoded search path, unrelated to this
   session's changes). The feature is thoroughly verified directly against live ROS (bring-up, activation, the fault, deactivation, refused

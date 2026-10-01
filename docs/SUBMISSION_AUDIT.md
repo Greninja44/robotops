@@ -10,12 +10,12 @@ the judges' questions on its own. This page lists the questions, where the answe
 | What problem does it solve? | Diagnosing a failing ROS 2 robot is a manual, sequential investigation across nodes, topics, TF, diagnostics, logs and controllers. | README → [Overview](../README.md#overview) ([Problem statement](../README.md#problem-statement), [Solution](../README.md#solution)) |
 | What does it do? | Investigates a failure in a live ROS 2 system, gathers evidence, names a likely root cause, proposes a guarded repair, and independently verifies recovery. | README top; [Overview](../README.md#overview) |
 | Where is AI essential? | A local LLM (`qwen3:4b`) chooses the next diagnostic tool, decides what to inspect next, forms the hypothesis and writes the diagnosis. There is no fault-to-tool table: tool sequences differ by evidence. | [Evidence-grounded agent design](../README.md#evidence-grounded-agent-design) |
-| Does it touch a real ROS 2 system? | Yes: `rclpy` tools against a running 6-node demo robot with real DDS traffic; faults are real process failures injected by a supervisor. | [Architecture](../README.md#architecture), `backend/ros_tools/`, `demo_robot/` |
+| Does it touch a real ROS 2 system? | Yes: `rclpy` tools against a running 7-node demo robot (one lifecycle-managed) with real DDS traffic; faults are real process failures injected by a supervisor. | [Architecture](../README.md#architecture), `backend/ros_tools/`, `demo_robot/` |
 | What prevents hallucinated diagnoses? | The LLM cites evidence IDs; code checks that the IDs exist, come from ≥ 2 different tool calls, include an anomaly about the named component, and that the action is allowlisted. Otherwise: inconclusive, no repair. | [Real investigation example](../README.md#real-investigation-example), `backend/agent/diagnosis.py` |
 | Is the repair autonomous? | The investigation and diagnosis are autonomous; the *state change* is deliberately gated by a human approval (single-use, bound to action + target). | [Safety model](../README.md#safety-model) |
 | What are the safety mechanisms? | Read-only tools by default, evidence gate, approval gate, narrow allowlist (two primitives), no shell, audit log, step/turn/timeout caps, independent 24-check verification. | [Safety model](../README.md#safety-model), `backend/safety/`, `tests/test_safety.py` |
 | Does it work? | A real, uncut recording; hero 10/10 consecutive runs; random hidden fault 15/15 on the five-fault set; 24/24 verification each. | README top, [Results](../README.md#results) |
-| How was it tested? | 186 fast tests (167 behaviour, 19 documentation checks) and 23 live-ROS tests, a fault-identity-leak test plus prompt audit, soak runs that found and fixed real bugs (documented in [STATUS.md](STATUS.md)). | [Testing](../README.md#testing) |
+| How was it tested? | 192 fast tests (173 behaviour, 19 documentation checks) and 23 live-ROS tests, a fault-identity-leak test plus prompt audit, soak runs that found and fixed real bugs (documented in [STATUS.md](STATUS.md)). | [Testing](../README.md#testing) |
 | How do I run it? | `./scripts/setup.sh`, `./run_demo.sh`, open the dashboard; requirements listed first. | [Quick start](../README.md#quick-start), [SETUP.md](SETUP.md) |
 
 ## 2. Rubric mapping (with evidence, without unmeasured claims)
@@ -59,7 +59,7 @@ the judges' questions on its own. This page lists the questions, where the answe
   invisible to any pytest test process in this environment for the whole poll budget, even a minimal repro with zero RobotOps code (bare
   `rclpy.init()` + `get_node_names()`), while the identical calls in a plain script see the graph within ~2 s. Ruled out: the ROS ament/launch_testing
   pytest plugins, pytest-asyncio, and every environment/cwd difference. Not caused by this session's changes, not a bug in `backend/` or in any
-  test - not yet root-caused beyond that. See [STATUS.md](STATUS.md). The 186 fast tests, direct exercises of every tool (including every
+  test - not yet root-caused beyond that. See [STATUS.md](STATUS.md). The 192 fast tests, direct exercises of every tool (including every
   2026-09-29 feature - see STATUS.md's dated entries) against the live robot, and a full `verify_demo.sh --full` pass (24/24, real backend, real
   model) were used instead.
 

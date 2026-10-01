@@ -237,7 +237,7 @@ Everything below was measured on the demo robot in this repository, on one lapto
 | Hero diagnosis time (query → accepted diagnosis) | **10.6 s median** (7.5–11.3 s) | hero acceptance file |
 | Hero query → recovery verified | 16.4 s median (max 17.1 s); approval → verified 5.4 s median | hero acceptance file |
 | Clean-state benchmark, generic query *"Diagnose the robot."*, 5 faults × 3 | 15/15 correct, repaired, verified; diagnosis median 4.7 s, p95 9.1 s (n = 15) | [`benchmarks/results_20260920_052452.md`](benchmarks/results_20260920_052452.md) |
-| Automated tests | 186 fast tests (167 behaviour, 19 documentation checks) + 23 live-ROS tests, all passing | `pytest tests` |
+| Automated tests | 192 fast tests (173 behaviour, 19 documentation checks) + 23 live-ROS tests, all passing | `pytest tests` |
 
 <details>
 <summary>Per-fault detail of the 15-run benchmark (3 runs per fault, generic query, real model choices)</summary>
@@ -307,7 +307,7 @@ The same sequence, scripted: `.venv/bin/python scripts/ui_hero_demo.py --runs 1`
 The fast suite and the dashboard build also run in CI on every push and pull request ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)); the live-ROS tests and benchmarks need ROS 2 and Ollama, so they run locally.
 
 ```bash
-.venv/bin/python -m pytest tests -m "not ros"       # 186 fast tests (~10 s): validator, state machine, safety policy, approvals, no-fault-leak, timeouts, API, docs links
+.venv/bin/python -m pytest tests -m "not ros"       # 192 fast tests (~10 s): validator, state machine, safety policy, approvals, no-fault-leak, timeouts, API, docs links
 ./scripts/start_demo.sh
 .venv/bin/python -m pytest tests -m ros             # 19 live tests against the running ROS 2 demo robot (~4 min)
 ./scripts/verify_demo.sh --full                     # end-to-end: services, ROS health, tools, fault injection, full diagnose → repair → verify loop
@@ -343,8 +343,8 @@ run_demo.sh, demo_preflight.sh
 
 # Limitations
 
-- **Demo topology.** The robot is a lightweight rclpy simulation of failure modes (6 nodes, real DDS), not hardware, Gazebo or Nav2. The tool layer is generic (graph, topic, TF, parameter, diagnostics, log inspection); the graph layout of the dashboard is written for this robot. The healthy-reference manifest (`demo_robot/manifest.json`) can be derived from a live observation (`scripts/learn_manifest.py`) rather than written by hand — used for real on this repo's robot, it found a real gap (a declared parameter the hand-written version had missed) — and, with the opt-in `--active` flag, resolves which node broadcasts which TF edge even when more than one node publishes to `/tf` (tf2's own introspection does not expose that reliably) by briefly restarting one candidate at a time; prose fields (`role`, `description`) are still never invented.
-- **Narrow repair primitives.** `restart_component` (six components) and one `set_parameter` fix (`base_controller.cmd_vel_topic` only). Between them they fit every fault in the table above; neither fixes a hardware fault, and the model does not reliably prefer `set_parameter` over a restart even when it applies (see [Fault scenarios](#fault-scenarios)).
+- **Demo topology.** The robot is a lightweight rclpy simulation of failure modes (7 nodes, one lifecycle-managed, real DDS), not hardware, Gazebo or Nav2 itself (one node uses the same `rclpy.lifecycle.LifecycleNode` pattern Nav2's own safety-critical nodes use — no map, costmap or planner). The tool layer is generic (graph, topic, TF, parameter, lifecycle, diagnostics, log inspection); the graph layout of the dashboard is written for this robot. The healthy-reference manifest (`demo_robot/manifest.json`) can be derived from a live observation (`scripts/learn_manifest.py`) rather than written by hand — used for real on this repo's robot, it found a real gap (a declared parameter the hand-written version had missed) — and, with the opt-in `--active` flag, resolves which node broadcasts which TF edge even when more than one node publishes to `/tf` (tf2's own introspection does not expose that reliably) by briefly restarting one candidate at a time; it also learns each lifecycle-managed node's expected state the same way (whatever state it observes on a healthy robot), reproducing this repo's own hand-written `"lifecycle"` section byte for byte. Prose fields (`role`, `description`) are still never invented.
+- **Narrow repair primitives.** `restart_component` (seven components) and one `set_parameter` fix (`base_controller.cmd_vel_topic` only). Between them they fit every fault in the table above; neither fixes a hardware fault, and the model does not reliably prefer `set_parameter` over a restart even when it applies (see [Fault scenarios](#fault-scenarios)).
 - **Small model.** `qwen3:4b` can misread evidence (it once read "40 messages in 4.0 s" as 4 Hz). The validator rejected that diagnosis, so no wrong repair ran, but a run can then end *inconclusive*. It also has habits (it opens with `get_recent_diagnostics` in most runs), and several process rules (own checks before concluding, no repeated tools) are enforced in code because the model otherwise loops.
 - **Bounded fault set.** The measurements cover the five injected failure modes only. Behaviour on unfamiliar failures is untested; the design intent is *inconclusive, no repair*, not a guess.
 - **Platform.** Developed on WSL2, where DDS needs the fragmentation settings in [`config/cyclonedds.xml`](config/cyclonedds.xml); discovery can hiccup when the machine is heavily loaded. Only ROS 2 Lyrical on Linux/WSL2 was tested. The GPU is shared with other work on the same machine.
