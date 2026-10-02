@@ -1,4 +1,4 @@
-# Status (updated 2026-09-30: lifecycle-managed node + manifest learning closes the lifecycle gap)
+# Status (updated 2026-10-01: lifecycle-state learning, Ollama fixed natively, second allowlisted parameter)
 
 ## UPDATE 2026-09-29 (post-submission, feature freeze lifted)
 - **Second guarded repair primitive**: `set_parameter` (`base_controller.cmd_vel_topic -> /cmd_vel` only, `policies.PARAMETER_FIX`) alongside
@@ -97,6 +97,40 @@
   186 fast tests (14 new: 5 for `inspect_lifecycle_state`, 9 already counted for sensor_drift), but a real `qwen3:4b` investigation of
   `lifecycle_stall` specifically was not run this round - worth doing once Ollama is reachable again. Tests 186 fast; fault count 9; read-only
   tools 13; demo robot 7 rclpy nodes (one of them lifecycle-managed).
+
+
+## UPDATE 2026-10-01 (lifecycle-state manifest learning, Ollama fixed, second allowlisted parameter)
+- **Closed the lifecycle-learning gap stated above**: `scripts/learn_manifest.py` now learns the `"lifecycle"` section too - whatever state a
+  lifecycle-managed node is observed in while the robot is healthy IS the expectation, the same reasoning `min_rate_hz` already used, so a fresh
+  reading always overrides a merged-in prior (unlike `min_rate_hz`/parameters, which prefer the prior when one exists). Reused the
+  `is_lifecycle_infra_topic` exemption in the learner's own topic loop, which had the same transition_event false-anomaly bug as
+  `monitor.py`/`list_topics`/`inspect_node`, just not yet exercised there. Verified against the live robot in both `--merge` and from-scratch
+  modes: the learned section matches the hand-written one byte for byte. 6 new tests (192 fast total, was 186).
+- **Ollama had become unreachable** (the Windows-host passthrough's install location had moved/broken, unrelated to this repo). Installed it
+  natively inside WSL instead: no root available in this environment, so extracted the `ollama-linux-amd64` release tarball into a user
+  directory rather than running the official installer (which needs `sudo`). Pulled `qwen3:4b`; Ollama auto-detected the machine's RTX 4050 and
+  now runs the model on GPU (100% GPU, 0.5 s warm-up generation). `scripts/start_ollama.sh` already preferred a native binary on `PATH`, so only
+  its stale comment and `docs/SETUP.md` needed updating. Verified end to end, not just that the server answers: `./run_demo.sh` READY (19/19
+  preflight checks) and `./scripts/verify_demo.sh --full` 24/24, including a real `qwen3:4b` investigation (diagnosis: `base_controller`, >= 2
+  evidence items) through approval, repair and independent recovery verification.
+- **A second allowlisted parameter, from a real gap, not an invented one**: `max_wheel_speed` was declared on `base_controller` since the
+  manifest-learning gap found it (2026-09-29) but never actually read by the control loop - a parameter that existed only on paper. Wired it into
+  real wheel-velocity clamping in `tick()`, giving it an actual effect for the first time. New 10th fault, `speed_limit_misconfig` (relaunches the
+  controller with the clamp set to 0.5, far below the few rad/s a normal command produces): the node stays alive and correctly subscribed to
+  `/cmd_vel` - unlike `topic_misconfig`, nothing about the ROS graph looks wrong - only `inspect_parameters` catches the drifted value against
+  the manifest (which already expected `12.0`, found by the same learner last round, so no manifest change was needed). `policies.PARAMETER_FIX`
+  changed from one (parameter, value) pair per target to a list, and `set_parameter base_controller` now resets both allowlisted parameters
+  (`cmd_vel_topic`, `max_wheel_speed`) to canonical in one call - the model names the component, never which parameter drifted, so this still
+  works regardless of which one actually did. 1 new live-ROS test added (24 total) and the fast suite's existing `set_parameter`/`policies`/API
+  tests updated for the new multi-param shape (still 192 fast - no new fast test functions, only updated assertions).
+  **How this was actually verified**: `pytest -m ros` itself hung (hit the background time limit) rather than running cleanly - a recurrence of
+  the pre-existing, already-documented `pytest -m ros` ROS-graph-discovery flake in this environment (see "Remaining weaknesses" in
+  SUBMISSION_AUDIT.md; not caused by this round's change - confirmed by reproducing it with a bare script using only `backend.ros_tools.client`,
+  no pytest involved, which also saw zero nodes for 15+ seconds). Worked around the same way as last time: verified every claim directly against
+  the live robot with raw scripts instead of through the flaky harness - fault injection clamps `/wheel_states` to the configured limit (`[0.5,
+  0.5]` measured directly, vs. `[4.37, 5.63]` normal), `inspect_parameters` flags exactly the anomaly described above, `/cmd_vel` keeps its one
+  subscriber (unlike `topic_misconfig`), and `set_parameter` resets both parameters in one call and measurably restores normal wheel speed.
+  Not yet run through a real model investigation this round.
 
 
 ## WORKING (verified by running it)

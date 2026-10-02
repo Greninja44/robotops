@@ -38,17 +38,20 @@ EXPECTED_RESULT = {
     "safety_monitor": "safety_monitor lifecycle state active, /safety_status publishing",
 }
 
-# set_parameter allowlist: component -> the ONE parameter it may be set to and its canonical value.
-# Deliberately narrow (no arbitrary parameter, no arbitrary value) - this is a second guarded repair
-# primitive, not a general parameter-setting capability.
+# set_parameter allowlist: component -> the fixed, ordered list of (parameter, canonical value) pairs it may be
+# set to, all applied together in one call. Deliberately narrow (no arbitrary parameter, no arbitrary value, and
+# the model never chooses which value - only which (action, target) to request) - this is a second guarded repair
+# primitive, not a general parameter-setting capability. Setting every allowlisted parameter on the target back
+# to canonical at once (rather than asking the model to name which one is wrong) means this still works even when
+# the model's diagnosis correctly names the component but not which specific parameter drifted.
 PARAMETER_FIX = {
-    "base_controller": {"param": "cmd_vel_topic", "value": "/cmd_vel", "risk": "low",
+    "base_controller": {"params": [("cmd_vel_topic", "/cmd_vel"), ("max_wheel_speed", 12.0)], "risk": "low",
                         "note": "live parameter update, no process restart; velocity commands keep flowing"},
 }
 
 PARAM_EXPECTED_RESULT = {
-    "base_controller": "base_controller subscribed to /cmd_vel again (parameter corrected live, no restart), "
-                       "/wheel_states flowing",
+    "base_controller": "base_controller's cmd_vel_topic and max_wheel_speed back to canonical (parameters "
+                       "corrected live, no restart), /wheel_states flowing at the commanded speed",
 }
 
 MIN_EVIDENCE_FOR_REPAIR = 2

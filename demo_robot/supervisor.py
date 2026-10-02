@@ -39,6 +39,8 @@ FAULTS = {
     "lidar_failure": "lidar driver stalls (process alive, no data)",
     "tf_failure": "TF broadcaster hangs (process alive, no transforms)",
     "topic_misconfig": "base controller relaunched with wrong cmd_vel topic",
+    "speed_limit_misconfig": "base controller relaunched with max_wheel_speed clamped far below normal "
+                              "(robot visibly crawls even for a full-speed command)",
     "node_crash": "obstacle monitor process crashes",
     "commander_stall": "velocity commander hangs (process alive, no /cmd_vel; the node the robot never checks first)",
     "odometry_stall": "wheel odometry hangs (process alive, no /odom, odom->base_link transform goes stale)",
@@ -148,6 +150,9 @@ class Supervisor:
             elif fault == "topic_misconfig":
                 self._stop("base_controller")
                 self._spawn("base_controller", ["-p", "cmd_vel_topic:=/cmd_vel_nav"])
+            elif fault == "speed_limit_misconfig":
+                self._stop("base_controller")
+                self._spawn("base_controller", ["-p", "max_wheel_speed:=0.5"])
         hist = self._history() + [{"fault": fault, "time": time.time()}]
         GROUND_TRUTH.write_text(json.dumps({"active_fault": fault, "history": hist[-50:]}, indent=2))
         return fault

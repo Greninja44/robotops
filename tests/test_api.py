@@ -23,12 +23,13 @@ def test_tools_endpoint_lists_read_only_and_gated_actions(api):
     assert set(d["repairable_components"]) >= {"base_controller", "lidar_driver"}
     pf = d["parameter_fixable_components"]
     assert set(pf) == {"base_controller"}
-    assert pf["base_controller"]["param"] == "cmd_vel_topic" and pf["base_controller"]["value"] == "/cmd_vel"
+    assert pf["base_controller"]["params"] == [["cmd_vel_topic", "/cmd_vel"], ["max_wheel_speed", 12.0]]
 
 
 def test_faults_endpoint(api):
     assert set(api.get("/api/faults").json()["faults"]) == {"controller_crash", "lidar_failure", "tf_failure",
-                                                            "topic_misconfig", "node_crash", "commander_stall",
+                                                            "topic_misconfig", "speed_limit_misconfig", "node_crash",
+                                                            "commander_stall",
                                                             "odometry_stall", "sensor_drift", "lifecycle_stall", "random"}
 
 

@@ -35,7 +35,7 @@ def execute(approvals: ApprovalRegistry, proposal_id: str, action: str, target: 
             return {"executed": False, "action": action, "target": target,
                     "error": f"no ROS node found for component {target!r}"}
         try:
-            res = ros_client.get_client().set_parameters(full_name, {fix["param"]: fix["value"]})
+            res = ros_client.get_client().set_parameters(full_name, dict(fix["params"]))
         except Exception as e:  # noqa: BLE001 - ROS unavailable, service missing, timeout, etc.
             return {"executed": False, "action": action, "target": target, "error": f"{type(e).__name__}: {e}"}
         return {"executed": bool(res.get("all_successful")), "action": action, "target": target,

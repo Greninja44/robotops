@@ -47,13 +47,24 @@ arguments, which would reveal `topic_misconfig`.
 **Approval binding.** A proposal ID is bound to `(action, target)` and consumed on use; the repair executor re-checks
 the allowlist *and* the approval, so a bug in the agent cannot bypass either.
 
-**A second repair primitive stays narrow on purpose.** `set_parameter` is not "let the model set any ROS parameter" - it is one
-hardcoded pair, `base_controller.cmd_vel_topic -> /cmd_vel` (`policies.PARAMETER_FIX`), reached through the same evidence gate,
-approval gate and independent verification as `restart_component`. The model can select it via `recommended_action` (dynamically
-added to both the JSON decision schema and the system prompt from `policies.ACTIONS`, so a third primitive would need no protocol
-change), but only `check_action` decides whether the (action, target) pair is legal. In practice `qwen3:4b` still defaults to
-`restart_component` for `topic_misconfig` even though `set_parameter` is offered as the less disruptive option - the mechanism
-was verified directly against the live node and through the full agent pipeline, not by trusting the model to reach for it.
+**A second repair primitive stays narrow on purpose.** `set_parameter` is not "let the model set any ROS parameter" - it is a fixed,
+hardcoded list of (parameter, canonical value) pairs per target, `policies.PARAMETER_FIX` (currently `base_controller`:
+`cmd_vel_topic -> /cmd_vel` and `max_wheel_speed -> 12.0`), reached through the same evidence gate, approval gate and independent
+verification as `restart_component`. All of a target's allowlisted parameters are set together in one call - the model names the
+(action, target) pair via `recommended_action` (dynamically added to both the JSON decision schema and the system prompt from
+`policies.ACTIONS`, so a third primitive would need no protocol change), never which parameter or value, so this still works
+whichever allowlisted parameter actually drifted; only `check_action` decides whether the pair is legal. In practice `qwen3:4b`
+still defaults to `restart_component` for `topic_misconfig` even though `set_parameter` is offered as the less disruptive option -
+the mechanism was verified directly against the live node and through the full agent pipeline, not by trusting the model to reach
+for it.
+
+**`max_wheel_speed` went from dead config to a real fault.** The manifest-learning gap (above) found it declared but never read by
+`base_controller`'s control loop - a parameter that existed only on paper. Wiring it into real wheel-velocity clamping turned it into
+a genuine second allowlisted parameter and a tenth fault, `speed_limit_misconfig` (relaunches the controller with the clamp set far
+below normal): the node stays alive and correctly subscribed to `/cmd_vel` - unlike `topic_misconfig`, nothing about the ROS graph
+looks wrong - only `inspect_parameters` catches the drifted value against the manifest. Verified directly against the live robot:
+the manifest already expected `12.0` (found by the same learner in the previous round), so no manifest change was needed, only the
+fault, the clamp logic and the second allowlist entry.
 
 **New faults reuse the existing tools; they never need a new one.** `commander_stall` and `odometry_stall` are just a `hung` flag on
 `VelocityCommander`/`WheelOdometry` (the same pattern `TfBroadcaster` already used) wired to a new supervisor fault id - the topic-rate,

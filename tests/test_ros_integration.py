@@ -149,6 +149,19 @@ def test_topic_misconfig_produces_real_symptoms(robot):
     assert any("/cmd_vel_nav" in t for t in anomalies(run(robot, "list_topics")))
 
 
+def test_speed_limit_misconfig_produces_real_symptoms(robot):
+    """base_controller is relaunched with max_wheel_speed clamped to 0.5 (normal commanded wheel speed is a few
+    rad/s): unlike topic_misconfig, /cmd_vel keeps its one subscriber - the node is listening correctly, just
+    enforcing a wrong limit. Only inspect_parameters (comparing the live value against the manifest) catches it."""
+    inject_and_wait(robot, "speed_limit_misconfig", lambda: "/base_controller" in robot.node_names()
+                    and run(robot, "inspect_parameters", node="/base_controller").data["parameters"].get("max_wheel_speed") == 0.5)
+    assert "/base_controller" in robot.node_names()                         # alive, not crashed
+    assert run(robot, "inspect_topic", topic="/cmd_vel").data["subscriber_count"] == 1   # listening correctly
+    p = run(robot, "inspect_parameters", node="/base_controller")
+    assert p.data["parameters"]["max_wheel_speed"] == 0.5 and anomalies(p)
+    assert any("max_wheel_speed" in t for t in anomalies(p))
+
+
 def test_node_crash_produces_real_symptoms(robot):
     inject_and_wait(robot, "node_crash", lambda: "/obstacle_monitor" not in robot.node_names())
     assert run(robot, "inspect_topic", topic="/scan").data["subscriber_count"] == 0
@@ -212,8 +225,8 @@ def test_random_fault_response_does_not_reveal_identity(robot):
     res = supervisor.inject("random")
     assert res["ok"] and res["injected"] == "random (hidden)"
     assert not any(f in str(res) for f in ("controller_crash", "lidar_failure", "tf_failure", "topic_misconfig",
-                                           "node_crash", "commander_stall", "odometry_stall", "sensor_drift",
-                                           "lifecycle_stall"))
+                                           "speed_limit_misconfig", "node_crash", "commander_stall", "odometry_stall",
+                                           "sensor_drift", "lifecycle_stall"))
 
 
 def test_unknown_fault_rejected(robot):

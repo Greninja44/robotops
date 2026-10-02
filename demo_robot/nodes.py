@@ -139,6 +139,9 @@ class BaseController(DemoNode):
         v, w = cmd.linear.x, cmd.angular.z
         left = (v - w * self.WHEEL_SEP / 2) / self.WHEEL_R
         right = (v + w * self.WHEEL_SEP / 2) / self.WHEEL_R
+        limit = self.get_parameter("max_wheel_speed").value
+        left = max(-limit, min(limit, left))
+        right = max(-limit, min(limit, right))
         msg = JointState(name=["left_wheel", "right_wheel"], velocity=[left, right])
         msg.header.stamp = self.get_clock().now().to_msg()
         self.pub.publish(msg)

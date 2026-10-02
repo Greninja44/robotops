@@ -9,7 +9,7 @@ from pathlib import Path
 from backend.ros_tools import nodes as nodes_tools
 
 ROOT = Path(__file__).resolve().parents[1]
-FAULT_IDS = ("controller_crash", "lidar_failure", "tf_failure", "topic_misconfig", "node_crash",
+FAULT_IDS = ("controller_crash", "lidar_failure", "tf_failure", "topic_misconfig", "speed_limit_misconfig", "node_crash",
             "commander_stall", "odometry_stall", "sensor_drift", "lifecycle_stall")
 # Code the agent's inputs are built from. backend/main.py (the injection API) is deliberately NOT in this list.
 AGENT_SIDE = ["backend/agent", "backend/ros_tools", "backend/safety", "backend/monitor.py", "backend/readiness.py"]
