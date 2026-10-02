@@ -207,6 +207,7 @@ anomalies, not the model's own confidence. The model's private reasoning is neve
 | LiDAR failure | `lidar_driver` stays alive but stops publishing: `/scan` at 0 Hz, LiDAR diagnostics ERROR, obstacle detection degraded | `restart_component lidar_driver` |
 | TF failure | `tf_broadcaster` hangs: `base_link → laser` transform goes stale while `/scan` still runs at 10 Hz | `restart_component tf_broadcaster` |
 | Topic mismatch | `base_controller` relaunched listening on `/cmd_vel_nav`: node alive, `/cmd_vel` has 0 subscribers, `/cmd_vel_nav` has 0 publishers | `set_parameter base_controller` (live fix, no restart) or `restart_component base_controller` |
+| Speed limit misconfig *(new)* | `base_controller` relaunched with `max_wheel_speed` clamped to 0.5 (normal is a few rad/s): node alive, still listening on `/cmd_vel` correctly - only `inspect_parameters` catches the clamp, the robot visibly crawls | `set_parameter base_controller` (live fix, no restart) or `restart_component base_controller` |
 | Node crash | `obstacle_monitor` exits: node missing, `/scan` lost its subscriber, `/obstacle_distance` gone | `restart_component obstacle_monitor` |
 | Commander stall *(new)* | `velocity_commander` hangs: `/cmd_vel` at 0 Hz, but `base_controller` (which complains about it) is not the cause - a real multi-hop trace | `restart_component velocity_commander` |
 | Odometry stall *(new)* | `wheel_odometry` hangs: `/odom` at 0 Hz and `odom → base_link` goes stale, while `base_link → laser` and the rest of the robot stay healthy | `restart_component wheel_odometry` |
@@ -215,11 +216,13 @@ anomalies, not the model's own confidence. The model's private reasoning is neve
 | **Random failure** | one of the above, chosen by the supervisor; its identity is **hidden from the agent** and not returned by the API | whichever the evidence supports |
 
 The repair column describes what the *correct* outcome is; the agent is never told it. Faults are injected into a real, running rclpy demo robot (7 nodes, real DDS traffic), not simulated in the UI.
-*(new)* marks the four faults added after the original submission; verified directly against the live robot (real symptoms confirmed: topic rates, diagnostics, TF, message content, lifecycle state) but not yet part of the measured 15/15 acceptance/benchmark numbers below, which predate them.
+*(new)* marks the five faults added after the original submission; verified directly against the live robot (real symptoms confirmed: topic rates, diagnostics, TF, message content, lifecycle state, parameter drift) but not yet part of the measured 15/15 acceptance/benchmark numbers below, which predate them.
 
-**A second, narrower repair primitive.** `base_controller` accepts a live `cmd_vel_topic` parameter update (`ros2 param set`, no process restart) as well as a
-restart — a real second option for topic mismatch, not a simulated one: exercised directly against the live node (`ros2 topic hz` on `/cmd_vel` recovers
-without a process ever exiting) and through the full agent pipeline (diagnose → approve → `set_parameter` → verify, `tests/test_agent_flow.py`).
+**A second, narrower repair primitive.** `base_controller` accepts a live parameter update (`ros2 param set`, no process restart) as well as a restart — a
+real second option for a misconfigured-but-alive component, not a simulated one: exercised directly against the live node (`ros2 topic hz` on `/cmd_vel`
+recovers without a process ever exiting) and through the full agent pipeline (diagnose → approve → `set_parameter` → verify, `tests/test_agent_flow.py`).
+`set_parameter base_controller` resets *both* allowlisted parameters (`cmd_vel_topic`, `max_wheel_speed`) to their canonical value in one call, not just
+whichever one a given fault happened to drift - the model names the component, never the parameter or its value.
 Honest result: in three ad hoc real runs of the topic-mismatch fault, `qwen3:4b` chose `restart_component` every time, even with `set_parameter` legal and
 described in its prompt as the less disruptive option for a misconfigured (as opposed to crashed) component — small-model habits again (see
 [Limitations](#limitations)). The mechanism is real and tested; the model does not yet reach for it on its own.
@@ -237,7 +240,7 @@ Everything below was measured on the demo robot in this repository, on one lapto
 | Hero diagnosis time (query → accepted diagnosis) | **10.6 s median** (7.5–11.3 s) | hero acceptance file |
 | Hero query → recovery verified | 16.4 s median (max 17.1 s); approval → verified 5.4 s median | hero acceptance file |
 | Clean-state benchmark, generic query *"Diagnose the robot."*, 5 faults × 3 | 15/15 correct, repaired, verified; diagnosis median 4.7 s, p95 9.1 s (n = 15) | [`benchmarks/results_20260920_052452.md`](benchmarks/results_20260920_052452.md) |
-| Automated tests | 192 fast tests (173 behaviour, 19 documentation checks) + 23 live-ROS tests, all passing | `pytest tests` |
+| Automated tests | 192 fast tests (173 behaviour, 19 documentation checks) + 24 live-ROS tests, all passing | `pytest tests` |
 
 <details>
 <summary>Per-fault detail of the 15-run benchmark (3 runs per fault, generic query, real model choices)</summary>
@@ -344,7 +347,7 @@ run_demo.sh, demo_preflight.sh
 # Limitations
 
 - **Demo topology.** The robot is a lightweight rclpy simulation of failure modes (7 nodes, one lifecycle-managed, real DDS), not hardware, Gazebo or Nav2 itself (one node uses the same `rclpy.lifecycle.LifecycleNode` pattern Nav2's own safety-critical nodes use — no map, costmap or planner). The tool layer is generic (graph, topic, TF, parameter, lifecycle, diagnostics, log inspection); the graph layout of the dashboard is written for this robot. The healthy-reference manifest (`demo_robot/manifest.json`) can be derived from a live observation (`scripts/learn_manifest.py`) rather than written by hand — used for real on this repo's robot, it found a real gap (a declared parameter the hand-written version had missed) — and, with the opt-in `--active` flag, resolves which node broadcasts which TF edge even when more than one node publishes to `/tf` (tf2's own introspection does not expose that reliably) by briefly restarting one candidate at a time; it also learns each lifecycle-managed node's expected state the same way (whatever state it observes on a healthy robot), reproducing this repo's own hand-written `"lifecycle"` section byte for byte. Prose fields (`role`, `description`) are still never invented.
-- **Narrow repair primitives.** `restart_component` (seven components) and one `set_parameter` fix (`base_controller.cmd_vel_topic` only). Between them they fit every fault in the table above; neither fixes a hardware fault, and the model does not reliably prefer `set_parameter` over a restart even when it applies (see [Fault scenarios](#fault-scenarios)).
+- **Narrow repair primitives.** `restart_component` (seven components) and `set_parameter` on one component (`base_controller`, two allowlisted parameters: `cmd_vel_topic`, `max_wheel_speed`). Between them they fit every fault in the table above; neither fixes a hardware fault, and the model does not reliably prefer `set_parameter` over a restart even when it applies (see [Fault scenarios](#fault-scenarios)).
 - **Small model.** `qwen3:4b` can misread evidence (it once read "40 messages in 4.0 s" as 4 Hz). The validator rejected that diagnosis, so no wrong repair ran, but a run can then end *inconclusive*. It also has habits (it opens with `get_recent_diagnostics` in most runs), and several process rules (own checks before concluding, no repeated tools) are enforced in code because the model otherwise loops.
 - **Bounded fault set.** The measurements cover the five injected failure modes only. Behaviour on unfamiliar failures is untested; the design intent is *inconclusive, no repair*, not a guess.
 - **Platform.** Developed on WSL2, where DDS needs the fragmentation settings in [`config/cyclonedds.xml`](config/cyclonedds.xml); discovery can hiccup when the machine is heavily loaded. Only ROS 2 Lyrical on Linux/WSL2 was tested. The GPU is shared with other work on the same machine.
@@ -353,7 +356,7 @@ run_demo.sh, demo_preflight.sh
 
 # Future work
 
-Real Nav2 navigation (this repo now uses the same lifecycle-node *pattern* Nav2 does, not Nav2 itself - no map, costmap or planner) · `ros2_control` integration · hardware robots · fleet monitoring · more guarded repair primitives (more allowlisted parameters, more lifecycle-managed components).
+Real Nav2 navigation (this repo now uses the same lifecycle-node *pattern* Nav2 does, not Nav2 itself - no map, costmap or planner) · `ros2_control` integration · hardware robots · fleet monitoring · more lifecycle-managed components (`set_parameter` now covers two allowlisted parameters on `base_controller`, up from one).
 
 # License
 
