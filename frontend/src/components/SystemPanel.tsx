@@ -8,7 +8,7 @@ const COMPONENTS: [string, string][] = [
 ]
 const FAULTS: [string, string][] = [
   ['controller_crash', 'Controller crash'], ['lidar_failure', 'LiDAR failure'], ['tf_failure', 'TF failure'],
-  ['topic_misconfig', 'Topic mismatch'], ['node_crash', 'Node crash'],
+  ['topic_misconfig', 'Topic mismatch'], ['speed_limit_misconfig', 'Speed limit misconfig'], ['node_crash', 'Node crash'],
   ['commander_stall', 'Commander stall'], ['odometry_stall', 'Odometry stall'], ['sensor_drift', 'Sensor drift'],
   ['lifecycle_stall', 'Lifecycle stall'],
 ]

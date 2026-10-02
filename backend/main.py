@@ -31,7 +31,7 @@ from backend.safety.audit import AuditLog
 ROOT = Path(__file__).resolve().parents[1]
 FRONTEND_DIST = ROOT / "frontend" / "dist"
 INVESTIGATION_DIR = ROOT / "logs" / "investigations"
-FAULTS = ["controller_crash", "lidar_failure", "tf_failure", "topic_misconfig", "node_crash", "commander_stall", "odometry_stall", "sensor_drift", "lifecycle_stall", "random"]
+FAULTS = ["controller_crash", "lidar_failure", "tf_failure", "topic_misconfig", "speed_limit_misconfig", "node_crash", "commander_stall", "odometry_stall", "sensor_drift", "lifecycle_stall", "random"]
 
 
 class Hub:
@@ -306,7 +306,7 @@ async def reject(inv_id: str, d: Decision):
 
 # ---------------------------------------------------------------------------- demo control
 class InjectRequest(BaseModel):
-    fault: Literal["controller_crash", "lidar_failure", "tf_failure", "topic_misconfig", "node_crash", "commander_stall", "odometry_stall", "sensor_drift", "lifecycle_stall", "random"]
+    fault: Literal["controller_crash", "lidar_failure", "tf_failure", "topic_misconfig", "speed_limit_misconfig", "node_crash", "commander_stall", "odometry_stall", "sensor_drift", "lifecycle_stall", "random"]
 
 
 @app.get("/api/faults")
