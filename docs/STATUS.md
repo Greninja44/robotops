@@ -130,7 +130,12 @@
   the live robot with raw scripts instead of through the flaky harness - fault injection clamps `/wheel_states` to the configured limit (`[0.5,
   0.5]` measured directly, vs. `[4.37, 5.63]` normal), `inspect_parameters` flags exactly the anomaly described above, `/cmd_vel` keeps its one
   subscriber (unlike `topic_misconfig`), and `set_parameter` resets both parameters in one call and measurably restores normal wheel speed.
-  Not yet run through a real model investigation this round.
+  **Run through a real model investigation after merging**: `qwen3:4b` diagnosed it correctly on the first real run - `faulty_component: base_controller`,
+  root cause stated as "max_wheel_speed=0.5 instead of the expected 12.0" (the exact parameter and both values), 3 evidence items (the
+  `inspect_parameters` anomaly plus two corroborating `/wheel_states` pub/sub checks), 9 tool calls, 67.5 s. It chose `set_parameter` over
+  `restart_component` on its own - the first time in this project across every ad hoc run of a parameter-type fault (previously `qwen3:4b`
+  always defaulted to a restart for `topic_misconfig`; see README's Fault scenarios). Approved and verified: repair executed (`all_successful`
+  for both parameters), 28/28 independent checks passed, odometry confirmed normal speed restored (0.49 m moved in 2 s, not the clamped crawl).
 
 
 ## WORKING (verified by running it)

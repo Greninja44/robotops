@@ -223,9 +223,11 @@ real second option for a misconfigured-but-alive component, not a simulated one:
 recovers without a process ever exiting) and through the full agent pipeline (diagnose → approve → `set_parameter` → verify, `tests/test_agent_flow.py`).
 `set_parameter base_controller` resets *both* allowlisted parameters (`cmd_vel_topic`, `max_wheel_speed`) to their canonical value in one call, not just
 whichever one a given fault happened to drift - the model names the component, never the parameter or its value.
-Honest result: in three ad hoc real runs of the topic-mismatch fault, `qwen3:4b` chose `restart_component` every time, even with `set_parameter` legal and
-described in its prompt as the less disruptive option for a misconfigured (as opposed to crashed) component — small-model habits again (see
-[Limitations](#limitations)). The mechanism is real and tested; the model does not yet reach for it on its own.
+Honest result, mixed: in three ad hoc real runs of the topic-mismatch fault, `qwen3:4b` chose `restart_component` every time, even with
+`set_parameter` legal and described in its prompt as the less disruptive option — small-model habits again (see [Limitations](#limitations)).
+But on the first real run of the newer speed-limit-misconfig fault, it chose `set_parameter` on its own: diagnosis named the exact parameter and
+both values (`max_wheel_speed=0.5` vs. expected `12.0`), and the repair executed, verified (28/28 checks) and restored normal speed. The
+mechanism is real and tested either way; whether the model reaches for it on its own still depends on the fault.
 
 # Results
 
