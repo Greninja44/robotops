@@ -112,7 +112,7 @@ async def test_full_loop_resolves_via_the_set_parameter_repair(env, monkeypatch)
     assert inv.phase == Phase.RESOLVED
     assert inv.repair["executed"] is True and inv.repair["action"] == "set_parameter"
     assert inv.repair["parameter_service_response"]["all_successful"] is True
-    assert calls == [("/base_controller", {"cmd_vel_topic": "/cmd_vel"})]
+    assert calls == [("/base_controller", {"cmd_vel_topic": "/cmd_vel", "max_wheel_speed": 12.0})]
     assert env["executed"] == []                                     # the process was never restarted
 
 
@@ -380,8 +380,8 @@ def test_system_prompt_is_compact_and_contains_no_fault_information():
     # Still a real regression guard: an addition that blows this budget without a matching new capability
     # behind it is bloat, not growth, and should be trimmed instead of raising the number again.
     assert len(text) < 3950
-    for word in ("controller_crash", "lidar_failure", "tf_failure", "topic_misconfig", "node_crash",
-                "commander_stall", "odometry_stall", "sensor_drift", "lifecycle_stall", "inject"):
+    for word in ("controller_crash", "lidar_failure", "tf_failure", "topic_misconfig", "speed_limit_misconfig",
+                "node_crash", "commander_stall", "odometry_stall", "sensor_drift", "lifecycle_stall", "inject"):
         assert word not in text
     assert "/cmd_vel" in text and "base_controller" in text        # architecture knowledge is there
 

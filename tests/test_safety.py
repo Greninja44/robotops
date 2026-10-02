@@ -24,7 +24,8 @@ def test_every_repairable_component_is_a_manifest_component_and_has_risk():
 
 
 def test_set_parameter_is_allowlisted_for_one_component_only():
-    """A second, narrower guarded repair primitive: only base_controller.cmd_vel_topic, to one canonical value."""
+    """A second, narrower guarded repair primitive: only base_controller, to a fixed, ordered list of canonical
+    (parameter, value) pairs - the model picks the target, never the value."""
     assert set(policies.PARAMETER_FIX) <= set(policies.components())
     pol = policies.check_action("set_parameter", "base_controller")
     assert pol == {"action": "set_parameter", "target": "base_controller", "risk": "low", "requires_approval": True}
@@ -55,7 +56,7 @@ def test_set_parameter_repair_calls_the_ros_client_not_the_supervisor(monkeypatc
     reg.decide(p.id, True)
     res = repair.execute(reg, p.id, "set_parameter", "base_controller")
     assert res["executed"] is True and res["action"] == "set_parameter"
-    assert calls == [("/base_controller", {"cmd_vel_topic": "/cmd_vel"})]
+    assert calls == [("/base_controller", {"cmd_vel_topic": "/cmd_vel", "max_wheel_speed": 12.0})]
 
 
 def test_set_parameter_repair_reports_failure_without_raising(monkeypatch):
